@@ -1,0 +1,332 @@
+#!/bin/bash
+
+# store arguments in array
+args=("$@")
+
+# define default values of the input variables
+# ***** PBS OPTIONS *****
+JOB_NAME="GT_$$"
+NR_CORES=1
+MEMORY="1GB"
+EMAIL=""
+TIME="24:00:00"
+# ***** SINGULARITY OPTIONS *****
+SINGULARITY_EXE=singularity
+if [ -z $SINGULARITY_CACHEDIR ]; then SINGULARITY_CACHE=$HOME/.singularity; else SINGULARITY_CACHE=$SINGULARITY_CACHEDIR; fi
+DOCKERHUB_IMAGE=""
+DOCKERHUB_TAG=""
+PROJECT_DIR=$PWD
+SHARED_DRIVE=/group/testa/
+RUN_JUPYTER="false"
+RUN_RSTUDIO_SERVER="false"
+TMP_DIR="/tmp"
+# **** PARAMETERS *****
+CLUSTER_ADDRESS="hpclogin.fht.org"
+
+# evaluate command line arguments
+tmp=0
+for arg in "$@"
+do
+    case $arg in
+    	"-h")	echo " "
+                echo " $0 -i <image_name> -t <tag> "
+                echo "          [-H <home>] [-B <bind>] [--jupyter] [--rstudio]"
+                echo "          [--tmp <path> ][--singularity-path <path>] [--singularity-cache <path>]"
+                echo "          [-N <name>] [-n <ncores>] [-m <memory>] [--email <mail@domain>]"
+                echo " " 
+                echo " This script allocates resources with the SLURM scheduler and starts "
+                echo " sshd on the SLURM node from a singularity container built from a "
+                echo " Dockerhub image. Optionally, the scrips also starts the 'jupyter'"
+                echo " and 'rstudio' apps of the given singularity image file."
+                echo " Reasonable default variables are provided for all the arguments"
+                echo " except for the -i and -t options, that specifies the name and the "
+                echo " tag of the Dockerhub image. "
+                echo " "
+                echo " ================= SINGULARITY OPTIONS ================================"
+                echo " -i                   name of the Dockerhub image (*) REQUIRED "
+                echo " -t                   tag of the Dockerhub image (*) REQUIRED "
+                echo " -H                   home directory specification (default if WD)"
+                echo " -B                   user-bind path specification (default is /group/testa/)"
+                echo " --jupyter            if given, also execute 'singularity run --app jupyter'"
+                echo " --rstudio            if given, also execute 'singularity run --app rstudio'"
+                echo " --tmp                path to mount as /tmp directory of the singularity"
+                echo " --singularity-path   change the default value of the singularity executable"
+                echo " --singularity-cache  change the default value of the singularity cache folder"
+                echo " "
+                echo " ================= SLURM AND EXECUTION OPTIONS ========================"
+                echo " -N:                 job name (defaults to GT_\$(THIS_SCRIPT_PID))"
+                echo " -n:                 number of reserved cores per node"
+                echo " -m:                 amount of reserved memory (e.g. 2GB, 100MB ..)"
+                echo " --time:             hard runtime limit hh:mm:ss (default 24:00:00)"
+                echo " --email:            if specified, send an email when the PBS job "
+                echo "                     is executed and terminated"
+                echo " "
+                exit
+                ;;
+        "-N")   JOB_NAME=${args[$((tmp+1))]}
+                ;;
+        "-n")   NR_CORES=${args[$((tmp+1))]}
+                ;;
+        "-m")   MEMORY=${args[$((tmp+1))]}
+                ;;
+        "--email") EMAIL=${args[$((tmp+1))]}
+                ;;
+        "--time") TIME=${args[$((tmp+1))]}
+                ;;
+        "-i")   DOCKERHUB_IMAGE=${args[$((tmp+1))]}
+                ;;
+        "-t")   DOCKERHUB_TAG=${args[$((tmp+1))]}
+                ;;
+        "--singularity-path")   SINGULARITY_EXE=${args[$((tmp+1))]}
+                ;;
+        "--singularity-cache")   SINGULARITY_CACHE=${args[$((tmp+1))]}
+                ;;
+        "--tmp")   TMP_DIR=${args[$((tmp+1))]}
+                ;;
+        "-H")   PROJECT_DIR=${args[$((tmp+1))]}
+                ;;
+        "-B")   SHARED_DRIVE=${args[$((tmp+1))]}
+                ;;
+        "--jupyter")   RUN_JUPYTER="true"
+                ;;
+        "--rstudio")   RUN_RSTUDIO_SERVER="true"
+                ;;
+    esac
+    tmp=$((tmp+1))
+done
+
+## check if singularity is available
+#if ! command -v "${SINGULARITY_EXE}" &> /dev/null
+#then
+#    echo "Error! wrong singularity path '${SINGULARITY_EXE}'"
+#    exit
+#fi
+
+# check if singularity cache does not exist, in case create it
+if [[ ! -d "${SINGULARITY_CACHE}" ]]
+then
+    mkdir -p "${SINGULARITY_CACHE}"
+fi
+
+# check if the name and tag do correspond to an actual Dockerhub image
+check_repo() {
+    curl --silent -f -lSL "https://index.docker.io/v1/repositories/${DOCKERHUB_IMAGE}/tags/${DOCKERHUB_TAG}" >& /dev/null; }
+# if ! check_repo
+# then
+#     echo "Error! please give the name (-i option) and tag (-t option) of a valid Dockerhub image"
+#     exit
+# fi
+
+# check if project dir is given and exists
+if [[ ! -d "${PROJECT_DIR}" ]]
+then
+    echo "Error! please give the path of a valid project folder (-H option)"
+    exit
+fi
+# convert folder relative path to full path
+PROJECT_DIR="$(cd "$(dirname "${PROJECT_DIR}")" || exit; pwd -P)/$(basename "${PROJECT_DIR}")"
+
+# print information on the job to be submitted
+echo " "
+echo "Running SLURM job ${JOB_NAME} with the following resources:"
+echo "* requested number of cores: ${NR_CORES}"
+echo "* requested memory: ${MEMORY}"
+if [[ -n "${EMAIL}" ]]
+then
+    echo "An email will be sent to ${EMAIL} when jobs enters and exits execution"
+fi
+echo " "
+echo "Singularity will run with the following options:"
+echo "* Dockerhub image: ${DOCKERHUB_IMAGE}:${DOCKERHUB_TAG}"
+echo "* home directory: ${PROJECT_DIR}"
+echo "* additional bind: ${SHARED_DRIVE}"
+echo "* local tmp directory: ${TMP_DIR}"
+echo "* singularity exe: ${SINGULARITY_EXE}"
+echo "* singularity cache: ${SINGULARITY_CACHE}"
+if [[ ${RUN_JUPYTER} == "true" ]]
+then
+    echo "* The 'singularity run --app jupyter' command will be executed'"
+fi
+if [[ ${RUN_RSTUDIO_SERVER} == "true" ]]
+then
+    echo "* The 'singularity run --app rstudio' command will be executed'"
+fi
+echo " "
+
+# prepare PBS script to occupy resources with an infinite sleep
+cat > "${JOB_NAME}.bash" << EOF
+#!/bin/bash
+
+#SBATCH --job-name=${JOB_NAME}
+#SBATCH --output=${JOB_NAME}.log
+EOF
+
+if [[ -n "${EMAIL}" ]]
+then
+    echo "#SBATCH --mail-user=${EMAIL}" >> "${JOB_NAME}.bash"
+    echo "#SBATCH --mail-type=ALL" >> "${JOB_NAME}.bash"
+fi
+
+cat >> "${JOB_NAME}.bash" << EOF
+#SBATCH --partition=cpuq
+#SBATCH --time=${TIME}
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=${NR_CORES}
+#SBATCH --mem=${MEMORY}
+
+module load singularity
+
+# this function generates the number of a random unused port in the 20000-30000 interval,
+# the number is stored in the $PORT_NUMBER variable
+random_port() {
+    TMP_FILE1=\$(mktemp --tmpdir=\$HOME)
+    TMP_FILE2=\$(mktemp --tmpdir=\$HOME)
+    seq "20000" "30000" | sort > \${TMP_FILE1}
+    ss -tan | awk '{print \$4}' | cut -d':' -f2 | grep '[0-9]\{1,5\}' | sort -u > \${TMP_FILE2}
+    PORT_NUMBER=\$(comm -23 \${TMP_FILE1} \${TMP_FILE2} | shuf | head -n "1")
+    rm \${TMP_FILE1} \${TMP_FILE2}
+}
+
+# +rw permissions for the group
+umask 002
+
+# check if local tmp folder does not exist, in case create it
+if [[ ! -d "${TMP_DIR}" ]]
+then
+    mkdir -p "${TMP_DIR}"
+fi
+
+# generate a new port number for ssh
+random_port; export SSH_PORT=\${PORT_NUMBER}
+# export env var to set singularity cache dir (https://sylabs.io/guides/3.3/user-guide/build_env.html#cache-folders)
+export SINGULARITY_CACHEDIR="${SINGULARITY_CACHE}"
+# export var to set a user-specific path for the sshd keys
+export SSH_CONFIG_PATH="${PROJECT_DIR}/.sshd-\${USER}"
+
+# issue a first singularity pull cmd to build the container in cache
+${SINGULARITY_EXE} run docker://${DOCKERHUB_IMAGE}:${DOCKERHUB_TAG} true
+
+# start the containerized ssh server
+${SINGULARITY_EXE} run -B ${SHARED_DRIVE} -B ${TMP_DIR}:/tmp -H ${PROJECT_DIR} \
+        docker://${DOCKERHUB_IMAGE}:${DOCKERHUB_TAG} run_sshd.sh &
+
+if [[ ${RUN_JUPYTER} == "true" ]]
+then
+    # generate a new port number for jupyter lab
+    random_port; export JUPYTER_PORT=\${PORT_NUMBER}
+    # start the containerized jupyter lab
+    ${SINGULARITY_EXE} run -B ${SHARED_DRIVE} -B ${TMP_DIR}:/tmp -H ${PROJECT_DIR} \
+        docker://${DOCKERHUB_IMAGE}:${DOCKERHUB_TAG} run_jupyterlab.sh &
+fi
+
+if [[ ${RUN_RSTUDIO_SERVER} == "true" ]]
+then
+    # generate a new port number for jupyter lab
+    random_port; export RSERVER_PORT=\${PORT_NUMBER}
+    # create temporary folders (see https://github.com/rocker-org/rocker-versioned2/issues/105)
+    mkdir -p ${PROJECT_DIR}/.rserver-${USER}/var_lib; mkdir -p ${PROJECT_DIR}/.rserver-${USER}/var_run
+    # start the containerized jupyter lab
+    ${SINGULARITY_EXE} run -B ${SHARED_DRIVE} -B ${TMP_DIR}:/tmp -H ${PROJECT_DIR} \
+        -B ${PROJECT_DIR}/.rserver-${USER}/var_lib:/var/lib/rstudio-server \
+        -B ${PROJECT_DIR}/.rserver-${USER}/var_run:/var/run/rstudio-server \
+        docker://${DOCKERHUB_IMAGE}:${DOCKERHUB_TAG} run_rstudioserver.sh &
+fi
+
+# now wait till the PBS job is terminated with external qdel request
+while true
+do
+    sleep 3600
+done
+
+EOF
+
+# copy the authorized_keys file to the project dir, to allow password-less connection to the image
+if [[ ! -d "${PROJECT_DIR}/.ssh" ]]
+then
+   mkdir "${PROJECT_DIR}/.ssh"
+fi
+cat "${PROJECT_DIR}/.ssh/authorized_keys" "${HOME}/.ssh/authorized_keys" 2> /dev/null | awk '!seen[$0]++' > ${PROJECT_DIR}/auth_tmp
+mv "${PROJECT_DIR}/auth_tmp" "${PROJECT_DIR}/.ssh/authorized_keys"
+
+# launch PBS job and store the job ID number
+SBATCH_ID=$(sbatch "${JOB_NAME}.bash" | sed -n "s/Submitted batch job \([0-9]*\)/\1/p")
+
+# wait until the submitted job enters running
+while true
+do
+     sleep 5
+     if grep -m 1 "sshd ${USER}" "${PROJECT_DIR}/singularity_open_ports.dat" >& /dev/null
+     then
+         # wait few seconds, to be sure that information is written to the singularity_open_ports.dat file 
+         sleep 10
+         # extract information on the SSH server running on the node
+         SSH_SERVICE=$(awk '{a[i++]=$0} END {for (j=i-1; j>=0;) print a[j--] }' \
+                       "${PROJECT_DIR}/singularity_open_ports.dat" | grep -m 1 "sshd ${USER}" | awk '{print $3}')
+         SSH_NODE=$(cut -d':' -f1 <<< "${SSH_SERVICE}")
+         SSH_PORT=$(cut -d':' -f2 <<< "${SSH_SERVICE}")
+         SSH_FORWARD="-L ${SSH_PORT}:127.0.0.1:${SSH_PORT}"
+         break
+     fi
+done
+
+# define name of a log file where the script output will be saved
+LOGFILE="${PROJECT_DIR}/slurm_singularity_service.log"
+
+# write informative message on how to run ssh command to forward jupyter lab and rstudio-server ports
+echo " " | tee "${LOGFILE}"
+echo "PBS job submission completed... running with SLURM ID $SLURM_ID" | tee -a "${LOGFILE}"
+echo " " | tee -a "${LOGFILE}"
+echo "Now you can log to the ssh singularity image from your machine" | tee -a "${LOGFILE}"
+echo "by using the command: " | tee -a "${LOGFILE}"
+echo " " | tee -a "${LOGFILE}"
+echo "> ssh -J ${USER}@${CLUSTER_ADDRESS} ${USER}@${SSH_NODE} -p ${SSH_PORT}" | tee -a "${LOGFILE}"
+echo " " | tee -a "${LOGFILE}"
+
+if [[ ${RUN_JUPYTER} == "true" ]]
+then
+    JUPYTER_SERVICE=$(tac "${PROJECT_DIR}/singularity_open_ports.dat" | grep -m 1 "jupyter ${USER}" | awk '{print $3}')
+    JUPYTER_TOKEN=$(tac "${PROJECT_DIR}/singularity_open_ports.dat" | grep -m 1 "jupyter ${USER}" | awk '{print $4}')
+    JUPYTER_PORT=$(cut -d':' -f2 <<< "${JUPYTER_SERVICE}")
+    JUPYTER_FORWARD="-L ${JUPYTER_PORT}:127.0.0.1:${JUPYTER_PORT}"
+    JUPYTER_FORWARD_FH="-L ${JUPYTER_PORT}:${SSH_NODE}:${JUPYTER_PORT}"
+fi
+if [[ ${RUN_RSTUDIO_SERVER} == "true" ]]
+then
+    RSTUDIO_SERVICE=$(tac "${PROJECT_DIR}/singularity_open_ports.dat" | grep -m 1 "rstudio-server ${USER}" \
+                      | awk '{print $3}')
+    RSTUDIO_PORT=$(cut -d':' -f2 <<< "${RSTUDIO_SERVICE}")
+    RSTUDIO_FORWARD="-L ${RSTUDIO_PORT}:127.0.0.1:${RSTUDIO_PORT}"
+    RSTUDIO_FORWARD_FH="-L ${RSTUDIO_PORT}:${SSH_NODE}:${RSTUDIO_PORT}"
+fi
+echo " " | tee -a "${LOGFILE}"
+echo "You can set the local forwarding of the service ports with the command: " | tee -a "${LOGFILE}"
+echo " " | tee -a "${LOGFILE}"
+echo "> ssh -NT ${SSH_FORWARD} ${JUPYTER_FORWARD} ${RSTUDIO_FORWARD} \\" | tee -a "${LOGFILE}"
+echo "          -J ${USER}@${CLUSTER_ADDRESS} ${USER}@${SSH_NODE} -p ${SSH_PORT}" | tee -a "${LOGFILE}"
+echo " " | tee -a "${LOGFILE}"
+echo "In alternative, you can use this local forwarding without using the ssh server on the node: " | tee -a "${LOGFILE}"
+echo "> ssh -NT ${JUPYTER_FORWARD_FH} ${RSTUDIO_FORWARD_FH} ${USER}@${CLUSTER_ADDRESS}" | tee -a "${LOGFILE}"
+echo " " | tee -a "${LOGFILE}"
+echo "After issuing this command on your local machine:" | tee -a "${LOGFILE}"
+echo " " | tee -a "${LOGFILE}"
+echo "* the local port 127.0.0.1:${SSH_PORT} will be forwarded to the singularity openssh server" | tee -a "${LOGFILE}"
+if [[ ${RUN_JUPYTER} == "true" ]]
+then
+   echo " " | tee -a "${LOGFILE}"
+   echo "* the address http://127.0.0.1:${JUPYTER_PORT}?${JUPYTER_TOKEN} will be forwarded to the singularity Jupyter instance" | tee -a "${LOGFILE}"
+   echo "  authentication is required with the token: ${JUPYTER_TOKEN}" | tee -a "${LOGFILE}"
+fi
+if [[ ${RUN_RSTUDIO_SERVER} == "true" ]]
+then
+   echo " " | tee -a "${LOGFILE}"
+   echo "* the address http://127.0.0.1:${RSTUDIO_PORT} will be forwarded to the singularity RStudio instance" | tee -a "${LOGFILE}"
+   echo "  no authentication required" | tee -a "${LOGFILE}"
+fi
+
+echo " " | tee -a "${LOGFILE}"
+echo "*** Note: to use ssh and port-forwarding, password-less authentication to the cluster frontend needs " | tee -a "${LOGFILE}"
+echo "          to be set before running the script" | tee -a "${LOGFILE}"
+echo " " | tee -a "${LOGFILE}"
+
+exit
+

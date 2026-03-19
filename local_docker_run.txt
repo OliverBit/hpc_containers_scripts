@@ -1,0 +1,269 @@
+#!/bin/bash
+
+# store arguments in array
+args=("$@")
+
+# define default values of the input variables
+# ***** SINGULARITY OPTIONS *****
+SINGULARITY_EXE=singularity
+if [ -z $SINGULARITY_CACHEDIR ]; then SINGULARITY_CACHE=$HOME/.singularity; else SINGULARITY_CACHE=$SINGULARITY_CACHEDIR; fi
+DOCKERHUB_IMAGE=""
+DOCKERHUB_TAG=""
+PROJECT_DIR=$PWD
+SHARED_DRIVE=/group/testa/
+RUN_JUPYTER="false"
+RUN_RSTUDIO_SERVER="false"
+RUN_VSCODE="false"
+RUN_COMMAND=""
+TMP_DIR="/tmp"
+RSERVER_PORT="8787"
+JUPYTER_PORT="8888"
+SSH_PORT="22222"
+
+# evaluate command line arguments
+tmp=0
+for arg in "$@"
+do
+    case $arg in
+    	"-h")	echo " "
+                echo " local_docker_run.sh -i <image_name> -t <tag> [-H <home>] [-B <bind>] [--jupyter] [--rstudio]"
+                echo "          [--tmp <path> ][--singularity-path <path>] [--singularity-cache <path>]"
+                echo "          [--jupyterport <port_N>] [--rstudioport <port_N>] [--sshport <port_N>]"
+                echo "          [--vscode] [--cmd <command>]"
+                echo " " 
+                echo " This script starts sshd locally using a singolarity container built from a "
+                echo " Dockerhub image. Optionally, the scrips also starts the 'jupyter'"
+                echo " 'rstudio' and 'vscode' apps of the given singularity image file, "
+                echo " or any other executable with the 'cmd' option.                   "
+                echo " Reasonable default variables are provided for all the arguments   "
+                echo " except for the -i and -t options, that specifies the name and the "
+                echo " tag of the Dockerhub image. "
+                echo " "
+                echo " ========================= EXECUTION OPTIONS =================================="
+                echo " -i                   name of the Dockerhub image (*) REQUIRED "
+                echo " -t                   tag of the Dockerhub image (*) REQUIRED "
+                echo " -H                   home directory specification (default if WD)"
+                echo " -B                   user-bind path specification (default is /group/testa/)"
+                echo " --jupyter            if given, also execute jupyter lab"
+                echo " --rstudio            if given, also execute rstudio-server"
+                echo " --vscode             run vscode, takes precedence over sshd, jupyter and rstudio"
+                echo " --cmd                run a specific command, takes precedence over all other options"
+                echo " --tmp                path to mount as /tmp directory of the singularity"
+                echo " --singularity-path   change the default value of the singularity executable"
+                echo " --singularity-cache  change the default value of the singularity cache folder"
+                echo " --jupyterport        set the port number for Jupyter Lab https service"
+                echo " --rstudioport        set the port number for RStudio Server https service"
+                echo " --sshport            set the port number for sshd service"
+                echo " "
+                exit
+                ;;
+        "-i")   DOCKERHUB_IMAGE=${args[$((tmp+1))]}
+                ;;
+        "-t")   DOCKERHUB_TAG=${args[$((tmp+1))]}
+                ;;
+        "--singularity-path")   SINGULARITY_EXE=${args[$((tmp+1))]}
+                ;;
+        "--singularity-cache")   SINGULARITY_CACHE=${args[$((tmp+1))]}
+                ;;
+        "--tmp")   TMP_DIR=${args[$((tmp+1))]}
+                ;;
+        "-H")   PROJECT_DIR=${args[$((tmp+1))]}
+                ;;
+        "-B")   SHARED_DRIVE=${args[$((tmp+1))]}
+                ;;
+        "--jupyter")   RUN_JUPYTER="true"
+                ;;
+        "--rstudio")   RUN_RSTUDIO_SERVER="true"
+                ;;
+        "--jupyterport")   JUPYTER_PORT=${args[$((tmp+1))]}
+                ;;
+        "--rstudioport")   RSERVER_PORT=${args[$((tmp+1))]}
+                ;;
+        "--sshport")   SSH_PORT=${args[$((tmp+1))]}
+                ;;
+        "--vscode")   RUN_VSCODE="true"
+                ;;
+        "--cmd")   RUN_COMMAND=${args[$((tmp+1))]}
+                ;;
+    esac
+    tmp=$((tmp+1))
+done
+
+# check if singularity is available
+if ! command -v "${SINGULARITY_EXE}" &> /dev/null
+then
+    echo "Error! wrong singularity path '${SINGULARITY_EXE}'"
+    exit
+fi
+
+# check if singularity cache does not exist, in case create it
+if [[ ! -d "${SINGULARITY_CACHE}" ]]
+then
+    mkdir -p "${SINGULARITY_CACHE}"
+fi
+
+# check if project dir is given and exists
+if [[ ! -d "${PROJECT_DIR}" ]]
+then
+    echo "Error! please give the path of a valid project folder (-H option)"
+    exit
+fi
+# convert folder relative path to full path
+PROJECT_DIR="$(cd "$(dirname "${PROJECT_DIR}")" || exit; pwd -P)/$(basename "${PROJECT_DIR}")"
+
+
+# print information on the job to be submitted
+echo " "
+echo "Singularity will run with the following options:"
+echo "* Dockerhub image: ${DOCKERHUB_IMAGE}:${DOCKERHUB_TAG}"
+echo "* home directory: ${PROJECT_DIR}"
+echo "* additional bind: ${SHARED_DRIVE}"
+echo "* local tmp directory: ${TMP_DIR}"
+echo "* singularity exe: ${SINGULARITY_EXE}"
+echo "* singularity cache: ${SINGULARITY_CACHE}"
+if [[ ! -z "${RUN_COMMAND}" ]]
+then
+   echo "* command '${RUN_COMMAND}' will be started in foreground"
+elif [[ ${RUN_VSCODE} == "true" ]]
+then
+   echo "* Visual Studio Code will be started in foreground"
+else
+    echo "* the ssh service will be started in background, port ${SSH_PORT}"
+    # check if given ports are already occupied
+    if nc -vz 127.0.0.1 ${SSH_PORT} >& /dev/null; then
+        echo ""
+        echo "Error! port ${SSH_PORT} is already occupied"
+        exit
+    fi
+
+    if [[ ${RUN_JUPYTER} == "true" ]]
+    then
+        echo "* the Jupyter Lab service will be started in background, port ${JUPYTER_PORT}"
+        # check if given ports are already occupied
+        if nc -vz 127.0.0.1 ${JUPYTER_PORT} >& /dev/null; then
+           echo ""
+           echo "Error! port ${JUPYTER_PORT} is already occupied"
+           exit
+        fi
+    fi
+
+    if [[ ${RUN_RSTUDIO_SERVER} == "true" ]]
+    then
+        echo "* the RStudio-Server service will be started in background, port ${RSERVER_PORT}"
+        # check if given ports are already occupied
+        if nc -vz 127.0.0.1 ${RSERVER_PORT} >& /dev/null; then
+           echo ""
+           echo "Error! port ${RSERVER_PORT} is already occupied"
+           exit
+        fi
+    fi
+fi
+echo " "
+
+# +rw permissions for the group
+umask 002
+
+# check if local tmp folder does not exist, in case create it
+if [[ ! -d "${TMP_DIR}" ]]
+then
+    mkdir -p "${TMP_DIR}"
+fi
+
+# copy the authorized_keys file to the project dir, to allow password-less connection to the image
+if [[ ! -d "${PROJECT_DIR}/.ssh" ]]
+then
+   mkdir "${PROJECT_DIR}/.ssh"
+fi
+cat "${PROJECT_DIR}/.ssh/authorized_keys" "${HOME}/.ssh/authorized_keys" 2> /dev/null | awk '!seen[$0]++' > ${PROJECT_DIR}/auth_tmp
+mv "${PROJECT_DIR}/auth_tmp" "${PROJECT_DIR}/.ssh/authorized_keys"
+
+# generate a new port number for ssh
+export SSH_PORT
+# export env var to set singularity cache dir (https://sylabs.io/guides/3.3/user-guide/build_env.html#cache-folders)
+export SINGULARITY_CACHEDIR="${SINGULARITY_CACHE}"
+# export var to set a user-specific path for the sshd keys
+export SSH_CONFIG_PATH="${PROJECT_DIR}/.sshd-${USER}"
+
+# issue a first singularity pull cmd to build the container in cache
+${SINGULARITY_EXE} run "docker://${DOCKERHUB_IMAGE}:${DOCKERHUB_TAG}" true
+
+if [[ ! -z "${RUN_COMMAND}" ]]
+then
+    # start the command in the container
+    ${SINGULARITY_EXE} run -B "${SHARED_DRIVE}" -B "${TMP_DIR}:/tmp" -H "${PROJECT_DIR}" -B /run/user \
+        "docker://${DOCKERHUB_IMAGE}:${DOCKERHUB_TAG}" "${RUN_COMMAND}"
+    # terminate the script after executing the command
+    exit
+fi
+
+
+if [[ ${RUN_VSCODE} == "true" ]]
+then
+    # start the containerized visual studio code
+    ${SINGULARITY_EXE} run -B "${SHARED_DRIVE}" -B "${TMP_DIR}:/tmp" -H "${PROJECT_DIR}" -B /run/user \
+        "docker://${DOCKERHUB_IMAGE}:${DOCKERHUB_TAG}" code
+    # terminate the script after closing VScode
+    exit
+fi
+
+# start the containerized ssh server
+${SINGULARITY_EXE} run -B "${SHARED_DRIVE}" -B "${TMP_DIR}:/tmp" -H "${PROJECT_DIR}" \
+        "docker://${DOCKERHUB_IMAGE}:${DOCKERHUB_TAG}" run_sshd.sh >& /dev/null & SSHD_PID=$!
+
+if [[ ${RUN_JUPYTER} == "true" ]]
+then
+    # generate a new port number for jupyter lab
+    export JUPYTER_PORT
+    # start the containerized jupyter lab
+    ${SINGULARITY_EXE} run -B "${SHARED_DRIVE}" -B "${TMP_DIR}:/tmp" -H "${PROJECT_DIR}" \
+        "docker://${DOCKERHUB_IMAGE}:${DOCKERHUB_TAG}" run_jupyterlab.sh >& /dev/null &
+fi
+
+if [[ ${RUN_RSTUDIO_SERVER} == "true" ]]
+then
+    # generate a new port number for jupyter lab
+    export RSERVER_PORT
+    # create temporary folders (see https://github.com/rocker-org/rocker-versioned2/issues/105)
+    mkdir -p "${PROJECT_DIR}/.rserver-${USER}/var_lib"; mkdir -p "${PROJECT_DIR}/.rserver-${USER}/var_run"
+    # start the containerized jupyter lab
+    ${SINGULARITY_EXE} run -B "${SHARED_DRIVE}" -B "${TMP_DIR}:/tmp" -H "${PROJECT_DIR}" \
+        -B "${PROJECT_DIR}/.rserver-${USER}/var_lib:/var/lib/rstudio-server" \
+        -B "${PROJECT_DIR}/.rserver-${USER}/var_run:/var/run/rstudio-server" \
+        "docker://${DOCKERHUB_IMAGE}:${DOCKERHUB_TAG}" run_rstudioserver.sh >& /dev/null &
+fi
+
+sleep 5
+
+# define name of a log file where the script output will be saved
+LOGFILE="${PROJECT_DIR}/pbs_singularity_service.log"
+
+# write informative message on how to run ssh command to forward jupyter lab and rstudio-server ports
+echo " " | tee "${LOGFILE}"
+echo "Singularity jobs running... " | tee -a "${LOGFILE}"
+echo " " | tee -a "${LOGFILE}"
+
+if [[ ${RUN_JUPYTER} == "true" ]]
+then
+    JUPYTER_TOKEN=$(tac "${PROJECT_DIR}/singularity_open_ports.dat" | grep -m 1 "jupyter ${USER}" | awk '{print $4}')
+fi
+
+echo "* sshd is listening to local port 127.0.0.1:${SSH_PORT}" | tee -a "${LOGFILE}"
+if [[ ${RUN_JUPYTER} == "true" ]]
+then
+   echo "* Jupyter Lab can be reached at the address http://127.0.0.1:${JUPYTER_PORT}?${JUPYTER_TOKEN}" | tee -a "${LOGFILE}"
+   echo "  authentication is required with the token: ${JUPYTER_TOKEN}" | tee -a "${LOGFILE}"
+fi
+if [[ ${RUN_RSTUDIO_SERVER} == "true" ]]
+then
+   echo "* RStudio Server can be reached at the address http://127.0.0.1:${RSERVER_PORT}" | tee -a "${LOGFILE}"
+   echo "  no authentication required" | tee -a "${LOGFILE}"
+fi
+echo " " | tee -a "${LOGFILE}"
+
+PROCGROUPID=$(ps -o pgid= $SSHD_PID | xargs)
+echo "To kill all the running jobs, you can issue the command: " | tee -a "${LOGFILE}"
+echo " > kill -- -${PROCGROUPID}" | tee -a "${LOGFILE}"
+echo " " | tee -a "${LOGFILE}"
+
+exit
+

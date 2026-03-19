@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd -P)"
+export HPC_DEV_ROOT_DIR="${ROOT_DIR}"
+export HPC_DEV_HOST_HOME="${HOME}"
+
+source "${ROOT_DIR}/lib/hpc-dev/args.sh"
+source "${ROOT_DIR}/lib/hpc-dev/config.sh"
+source "${ROOT_DIR}/lib/hpc-dev/engine.sh"
+source "${ROOT_DIR}/lib/hpc-dev/paths.sh"
+source "${ROOT_DIR}/lib/hpc-dev/mounts.sh"
+source "${ROOT_DIR}/lib/hpc-dev/session.sh"
+source "${ROOT_DIR}/lib/hpc-dev/service_state.sh"
+source "${ROOT_DIR}/lib/hpc-dev/local.sh"
+source "${ROOT_DIR}/lib/hpc-dev/slurm.sh"
+source "${ROOT_DIR}/lib/hpc-dev/output.sh"
+
+hpc_dev_main "$@"
