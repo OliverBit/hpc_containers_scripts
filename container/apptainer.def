@@ -1,0 +1,28 @@
+Bootstrap: docker
+From: ubuntu:24.04
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y bash ca-certificates curl git iproute2 less netcat-openbsd openssl openssh-server procps python3 python3-pip
+    pip3 install --no-cache-dir jupyterlab
+    mkdir -p /var/run/sshd
+
+    install -d /usr/local/bin
+    install -m 0755 /tmp/hpc-service-lib.sh /usr/local/bin/hpc-service-lib.sh
+    install -m 0755 /tmp/hpc-service-sshd.sh /usr/local/bin/hpc-service-sshd.sh
+    install -m 0755 /tmp/hpc-service-jupyter.sh /usr/local/bin/hpc-service-jupyter.sh
+    install -m 0755 /tmp/hpc-service-rstudio.sh /usr/local/bin/hpc-service-rstudio.sh
+
+%files
+    container/helpers/hpc-service-lib.sh /tmp/hpc-service-lib.sh
+    container/helpers/hpc-service-sshd.sh /tmp/hpc-service-sshd.sh
+    container/helpers/hpc-service-jupyter.sh /tmp/hpc-service-jupyter.sh
+    container/helpers/hpc-service-rstudio.sh /tmp/hpc-service-rstudio.sh
+
+%runscript
+    exec "$@"
+
+%help
+    Starter Apptainer definition for the owned-image path.
+    Extend this with site-specific R and RStudio Server installation steps before production use.
