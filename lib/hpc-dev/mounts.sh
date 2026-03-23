@@ -9,6 +9,7 @@ hpc_dev_build_bind_args() {
     BIND_ARGS+=("-B" "${WORKSPACE_DIR}:${WORKSPACE_MOUNT}")
     BIND_ARGS+=("-B" "${REAL_HOME_DIR}:${REAL_HOME_MOUNT}")
     BIND_ARGS+=("-B" "${DEV_HOME_DIR}:${DEV_HOME_MOUNT}")
+    BIND_ARGS+=("-B" "${SESSION_DIR}:${SESSION_MOUNT}")
     BIND_ARGS+=("-B" "${CONTAINER_TMP_DIR}:/tmp")
 
     if (( ${#GROUP_NAMES[@]} > 0 ))

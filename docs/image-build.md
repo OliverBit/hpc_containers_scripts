@@ -37,6 +37,19 @@ bash container/build-apptainer.sh /path/to/hpc-dev.sif
 bash container/smoke-test-image.sh --image /path/to/hpc-dev.sif
 ```
 
+Once the smoke test passes, exercise the wrapper cutover with:
+
+```bash
+bash bin/hpc-dev start \
+  --mode slurm \
+  --image /path/to/hpc-dev.sif \
+  --workspace /path/to/project \
+  --service sshd \
+  --service jupyter \
+  --helper-mode explicit \
+  --group kalebic
+```
+
 For Docker builds from the repository root:
 
 ```bash

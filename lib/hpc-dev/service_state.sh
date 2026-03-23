@@ -68,3 +68,32 @@ hpc_dev_wait_for_legacy_service() {
     done
     return 1
 }
+
+hpc_dev_wait_for_explicit_service() {
+    local service_name="$1"
+    local timeout_seconds="${2:-60}"
+    local waited=0
+    local service_env
+    service_env="$(hpc_dev_service_file "${service_name}")"
+    while [[ ${waited} -lt ${timeout_seconds} ]]
+    do
+        if [[ -f "${service_env}" ]] && grep -q '^STATUS=ready$' "${service_env}" 2>/dev/null
+        then
+            return 0
+        fi
+        sleep 2
+        waited=$((waited + 2))
+    done
+    return 1
+}
+
+hpc_dev_wait_for_service() {
+    local service_name="$1"
+    local timeout_seconds="${2:-60}"
+    if [[ "${HELPER_MODE}" == "explicit" ]]
+    then
+        hpc_dev_wait_for_explicit_service "${service_name}" "${timeout_seconds}"
+    else
+        hpc_dev_wait_for_legacy_service "${service_name}" "${timeout_seconds}"
+    fi
+}

@@ -82,7 +82,12 @@ EOF
         else
             echo "export SSH_PORT=\"${SSH_PORT_REQUEST}\"" >> "${job_script}"
         fi
-        echo "\"${ENGINE_CMD}\" run ${quoted_binds}-H \"${CONTAINER_HOME_SOURCE}\" \"${IMAGE}\" run_sshd.sh >\"${SESSION_DIR}/logs/sshd.log\" 2>&1 &" >> "${job_script}"
+        if [[ "${HELPER_MODE}" == "explicit" ]]
+        then
+            echo "\"${ENGINE_CMD}\" exec ${quoted_binds}-H \"${CONTAINER_HOME_SOURCE}\" \"${IMAGE}\" hpc-service-sshd.sh --port \"\${SSH_PORT}\" --state-dir \"${SESSION_MOUNT}/services/sshd.state\" --metadata-file \"${SESSION_MOUNT}/services/sshd.env\" --authorized-keys-file \"${DEV_HOME_MOUNT}/.ssh/authorized_keys\" --host-keys-dir \"${SESSION_MOUNT}/ssh/hostkeys\" --bind-address 0.0.0.0 >\"${SESSION_DIR}/logs/sshd.log\" 2>&1 &" >> "${job_script}"
+        else
+            echo "\"${ENGINE_CMD}\" run ${quoted_binds}-H \"${CONTAINER_HOME_SOURCE}\" \"${IMAGE}\" run_sshd.sh >\"${SESSION_DIR}/logs/sshd.log\" 2>&1 &" >> "${job_script}"
+        fi
     fi
 
     if hpc_dev_service_requested "jupyter"
@@ -93,7 +98,12 @@ EOF
         else
             echo "export JUPYTER_PORT=\"${JUPYTER_PORT_REQUEST}\"" >> "${job_script}"
         fi
-        echo "\"${ENGINE_CMD}\" run ${quoted_binds}-H \"${CONTAINER_HOME_SOURCE}\" \"${IMAGE}\" run_jupyterlab.sh >\"${SESSION_DIR}/logs/jupyter.log\" 2>&1 &" >> "${job_script}"
+        if [[ "${HELPER_MODE}" == "explicit" ]]
+        then
+            echo "\"${ENGINE_CMD}\" exec ${quoted_binds}-H \"${CONTAINER_HOME_SOURCE}\" \"${IMAGE}\" hpc-service-jupyter.sh --port \"\${JUPYTER_PORT}\" --workspace \"${WORKSPACE_MOUNT}\" --state-dir \"${SESSION_MOUNT}/services/jupyter.state\" --metadata-file \"${SESSION_MOUNT}/services/jupyter.env\" --token-file \"${SESSION_MOUNT}/services/jupyter.state/jupyter.token\" --bind-address 127.0.0.1 >\"${SESSION_DIR}/logs/jupyter.log\" 2>&1 &" >> "${job_script}"
+        else
+            echo "\"${ENGINE_CMD}\" run ${quoted_binds}-H \"${CONTAINER_HOME_SOURCE}\" \"${IMAGE}\" run_jupyterlab.sh >\"${SESSION_DIR}/logs/jupyter.log\" 2>&1 &" >> "${job_script}"
+        fi
     fi
 
     if hpc_dev_service_requested "rstudio"
@@ -109,7 +119,12 @@ EOF
         else
             echo "export RSTUDIO_PORT=\"${RSTUDIO_PORT_REQUEST}\"" >> "${job_script}"
         fi
-        echo "\"${ENGINE_CMD}\" run ${rstudio_bind_string} -H \"${CONTAINER_HOME_SOURCE}\" \"${IMAGE}\" run_rstudioserver.sh >\"${SESSION_DIR}/logs/rstudio.log\" 2>&1 &" >> "${job_script}"
+        if [[ "${HELPER_MODE}" == "explicit" ]]
+        then
+            echo "\"${ENGINE_CMD}\" exec ${rstudio_bind_string}-H \"${CONTAINER_HOME_SOURCE}\" \"${IMAGE}\" hpc-service-rstudio.sh --port \"\${RSTUDIO_PORT}\" --state-dir \"${SESSION_MOUNT}/services/rstudio.state\" --metadata-file \"${SESSION_MOUNT}/services/rstudio.env\" --cookie-file \"${SESSION_MOUNT}/services/rstudio.state/secure-cookie-key\" --bind-address 127.0.0.1 >\"${SESSION_DIR}/logs/rstudio.log\" 2>&1 &" >> "${job_script}"
+        else
+            echo "\"${ENGINE_CMD}\" run ${rstudio_bind_string} -H \"${CONTAINER_HOME_SOURCE}\" \"${IMAGE}\" run_rstudioserver.sh >\"${SESSION_DIR}/logs/rstudio.log\" 2>&1 &" >> "${job_script}"
+        fi
     fi
 
     cat >> "${job_script}" <<'EOF'
@@ -134,15 +149,15 @@ hpc_dev_start_slurm() {
 
     if hpc_dev_service_requested "sshd"
     then
-        hpc_dev_wait_for_legacy_service "sshd" 120 || hpc_dev_die "sshd did not register in time"
+        hpc_dev_wait_for_service "sshd" 120 || hpc_dev_die "sshd did not register in time"
     fi
     if hpc_dev_service_requested "jupyter"
     then
-        hpc_dev_wait_for_legacy_service "jupyter" 120 || hpc_dev_die "jupyter did not register in time"
+        hpc_dev_wait_for_service "jupyter" 120 || hpc_dev_die "jupyter did not register in time"
     fi
     if hpc_dev_service_requested "rstudio"
     then
-        hpc_dev_wait_for_legacy_service "rstudio" 120 || hpc_dev_die "rstudio did not register in time"
+        hpc_dev_wait_for_service "rstudio" 120 || hpc_dev_die "rstudio did not register in time"
     fi
 
     hpc_dev_note "Session started: ${SESSION_ID}"

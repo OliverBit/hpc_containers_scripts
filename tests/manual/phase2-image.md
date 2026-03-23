@@ -19,3 +19,16 @@ bash container/smoke-test-image.sh --image /path/to/hpc-dev.sif
 - Jupyter metadata is created
 
 4. If `rserver` is not present yet, treat that as expected until the site-specific RStudio install is added.
+
+5. After the image smoke test passes, validate wrapper integration:
+
+```bash
+bash bin/hpc-dev start \
+  --mode slurm \
+  --image /path/to/hpc-dev.sif \
+  --workspace /path/to/project \
+  --service sshd \
+  --service jupyter \
+  --helper-mode explicit \
+  --group kalebic
+```

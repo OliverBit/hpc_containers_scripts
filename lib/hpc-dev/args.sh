@@ -58,6 +58,7 @@ Common launch options:
   --real-home-mount PATH      container real home mount, default /host-home
   --dev-home-mount PATH       container dev home mount, default /dev-home
   --engine ENGINE             auto, apptainer, or singularity
+  --helper-mode MODE          legacy or explicit
   --login-host HOST           SSH frontend for slurm mode
   --session-name NAME         friendly session name
   --cache-dir PATH            persistent image/cache directory
@@ -95,7 +96,9 @@ hpc_dev_reset_options() {
     WORKSPACE_MOUNT="/workspace"
     REAL_HOME_MOUNT="/host-home"
     DEV_HOME_MOUNT="/dev-home"
+    SESSION_MOUNT="/hpc-dev-session"
     ENGINE_REQUEST="auto"
+    HELPER_MODE="legacy"
     LOGIN_HOST=""
     SESSION_NAME=""
     SESSION_LOOKUP=""
@@ -134,7 +137,9 @@ hpc_dev_parse_launch_args() {
             --workspace-mount) WORKSPACE_MOUNT="${2:-}"; hpc_dev_require_value "$1" "${WORKSPACE_MOUNT}"; shift 2 ;;
             --real-home-mount) REAL_HOME_MOUNT="${2:-}"; hpc_dev_require_value "$1" "${REAL_HOME_MOUNT}"; shift 2 ;;
             --dev-home-mount) DEV_HOME_MOUNT="${2:-}"; hpc_dev_require_value "$1" "${DEV_HOME_MOUNT}"; shift 2 ;;
+            --session-mount) SESSION_MOUNT="${2:-}"; hpc_dev_require_value "$1" "${SESSION_MOUNT}"; shift 2 ;;
             --engine) ENGINE_REQUEST="${2:-}"; hpc_dev_require_value "$1" "${ENGINE_REQUEST}"; shift 2 ;;
+            --helper-mode) HELPER_MODE="${2:-}"; hpc_dev_require_value "$1" "${HELPER_MODE}"; shift 2 ;;
             --login-host) LOGIN_HOST="${2:-}"; hpc_dev_require_value "$1" "${LOGIN_HOST}"; shift 2 ;;
             --session-name) SESSION_NAME="${2:-}"; hpc_dev_require_value "$1" "${SESSION_NAME}"; shift 2 ;;
             --partition) PARTITION="${2:-}"; hpc_dev_require_value "$1" "${PARTITION}"; shift 2 ;;
@@ -187,6 +192,11 @@ hpc_dev_validate_launch_args() {
     case "${HOME_MODE}" in
         dev|real|project) ;;
         *) hpc_dev_die "--home-mode must be dev, real, or project" ;;
+    esac
+
+    case "${HELPER_MODE}" in
+        legacy|explicit) ;;
+        *) hpc_dev_die "--helper-mode must be legacy or explicit" ;;
     esac
 }
 

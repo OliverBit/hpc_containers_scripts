@@ -72,7 +72,9 @@ hpc_dev_write_session_env() {
         "REAL_HOME_MOUNT=${REAL_HOME_MOUNT}" \
         "DEV_HOME_DIR=${DEV_HOME_DIR}" \
         "DEV_HOME_MOUNT=${DEV_HOME_MOUNT}" \
+        "SESSION_MOUNT=${SESSION_MOUNT}" \
         "HOME_MODE=${HOME_MODE}" \
+        "HELPER_MODE=${HELPER_MODE}" \
         "CONTAINER_HOME_SOURCE=${CONTAINER_HOME_SOURCE}" \
         "CACHE_DIR=${CACHE_DIR}" \
         "ENGINE_TMP_DIR=${ENGINE_TMP_DIR}" \
@@ -83,9 +85,9 @@ hpc_dev_write_session_env() {
         "CPUS=${CPUS}" \
         "MEMORY=${MEMORY}" \
         "EMAIL=${EMAIL}" \
-        "SERVICES=$(hpc_dev_join_by , "${SERVICES[@]-}")" \
-        "GROUP_NAMES=$(hpc_dev_join_by , "${GROUP_NAMES[@]-}")" \
-        "GROUP_BIND_PATHS=$(hpc_dev_join_by , "${GROUP_BIND_PATHS[@]:-}")" \
+        "SERVICES_CSV=$(hpc_dev_join_by , "${SERVICES[@]-}")" \
+        "GROUP_NAMES_CSV=$(hpc_dev_join_by , "${GROUP_NAMES[@]-}")" \
+        "GROUP_BIND_PATHS_CSV=$(hpc_dev_join_by , "${GROUP_BIND_PATHS[@]:-}")" \
         "SSH_PORT_REQUEST=${SSH_PORT_REQUEST}" \
         "JUPYTER_PORT_REQUEST=${JUPYTER_PORT_REQUEST}" \
         "RSTUDIO_PORT_REQUEST=${RSTUDIO_PORT_REQUEST}"
@@ -96,6 +98,22 @@ hpc_dev_source_env_file() {
     [[ -f "${env_file}" ]] || return 1
     # shellcheck disable=SC1090
     source "${env_file}"
+}
+
+hpc_dev_csv_to_array() {
+    local csv_value="${1:-}"
+    local array_name="$2"
+    local old_ifs="${IFS}"
+    IFS=','
+    # shellcheck disable=SC2206
+    local items=(${csv_value})
+    IFS="${old_ifs}"
+    if [[ -z "${csv_value}" ]]
+    then
+        eval "${array_name}=()"
+    else
+        eval "${array_name}=(\"\${items[@]}\")"
+    fi
 }
 
 hpc_dev_resolve_existing_session() {
@@ -109,6 +127,9 @@ hpc_dev_resolve_existing_session() {
     SESSION_DIR="${STATE_ROOT}/sessions/${SESSION_ID}"
     [[ -d "${SESSION_DIR}" ]] || hpc_dev_die "unknown session: ${SESSION_ID}"
     hpc_dev_source_env_file "${SESSION_DIR}/session.env" || hpc_dev_die "failed to load session metadata"
+    hpc_dev_csv_to_array "${SERVICES_CSV:-${SERVICES:-}}" SERVICES
+    hpc_dev_csv_to_array "${GROUP_NAMES_CSV:-${GROUP_NAMES:-}}" GROUP_NAMES
+    hpc_dev_csv_to_array "${GROUP_BIND_PATHS_CSV:-${GROUP_BIND_PATHS:-}}" GROUP_BIND_PATHS
 }
 
 hpc_dev_pick_local_port() {

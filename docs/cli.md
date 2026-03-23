@@ -54,3 +54,21 @@ bash bin/hpc-dev plan \
   --group kalebic \
   --group testa
 ```
+
+Gradual cutover to the owned image helper contract:
+
+```bash
+bash bin/hpc-dev start \
+  --mode slurm \
+  --image /path/to/hpc-dev.sif \
+  --workspace /path/to/project \
+  --service sshd \
+  --service jupyter \
+  --helper-mode explicit \
+  --group kalebic
+```
+
+Recommended rollout:
+
+- keep `HELPER_MODE=legacy` as the default until the owned image passes the smoke test
+- use `--helper-mode explicit` only with the owned image path

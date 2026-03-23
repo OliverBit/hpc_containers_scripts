@@ -19,6 +19,7 @@ hpc_dev_load_config() {
     local requested_group_root="${GROUP_ROOT:-}"
     local requested_engine_default="${ENGINE_DEFAULT:-}"
     local requested_engine_module="${ENGINE_MODULE:-}"
+    local requested_helper_mode="${HELPER_MODE:-}"
 
     CONFIG_DIR="${HPC_DEV_CONFIG_DIR:-${HPC_DEV_HOST_HOME}/.config/hpc-dev}"
     CONFIG_FILE="${HPC_DEV_CONFIG_FILE:-${CONFIG_DIR}/config.env}"
@@ -39,10 +40,12 @@ hpc_dev_load_config() {
     [[ -n "${requested_group_root}" ]] && GROUP_ROOT="${requested_group_root}"
     [[ -n "${requested_engine_default}" ]] && ENGINE_DEFAULT="${requested_engine_default}"
     [[ -n "${requested_engine_module}" ]] && ENGINE_MODULE="${requested_engine_module}"
+    [[ -n "${requested_helper_mode}" ]] && HELPER_MODE="${requested_helper_mode}"
 
     LOGIN_HOST="${HPC_DEV_LOGIN_HOST:-${LOGIN_HOST:-}}"
     ENGINE_DEFAULT="${HPC_DEV_ENGINE_DEFAULT:-${ENGINE_DEFAULT:-auto}}"
     ENGINE_MODULE="${HPC_DEV_ENGINE_MODULE:-${ENGINE_MODULE:-}}"
+    HELPER_MODE="${HPC_DEV_HELPER_MODE:-${HELPER_MODE:-legacy}}"
     GROUP_ROOT="${HPC_DEV_GROUP_ROOT:-${GROUP_ROOT:-}}"
     DEFAULT_PARTITION="${DEFAULT_PARTITION:-cpu-interactive}"
 

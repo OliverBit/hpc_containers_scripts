@@ -49,6 +49,83 @@ hpc_dev_run_legacy_service_local() {
     printf '%s\n' "${pid}" > "${SESSION_DIR}/pids/${service_name}.pid"
 }
 
+hpc_dev_explicit_helper_name() {
+    case "$1" in
+        sshd) printf '%s\n' "hpc-service-sshd.sh" ;;
+        jupyter) printf '%s\n' "hpc-service-jupyter.sh" ;;
+        rstudio) printf '%s\n' "hpc-service-rstudio.sh" ;;
+        *) return 1 ;;
+    esac
+}
+
+hpc_dev_container_service_file() {
+    local service_name="$1"
+    printf '%s/services/%s.env\n' "${SESSION_MOUNT}" "${service_name}"
+}
+
+hpc_dev_container_service_state_dir() {
+    local service_name="$1"
+    printf '%s/services/%s.state\n' "${SESSION_MOUNT}" "${service_name}"
+}
+
+hpc_dev_prepare_explicit_service_dirs() {
+    local service_name="$1"
+    hpc_dev_ensure_dir "${SESSION_DIR}/services/${service_name}.state"
+}
+
+hpc_dev_run_explicit_service_local() {
+    local service_name="$1"
+    local helper_name
+    helper_name="$(hpc_dev_explicit_helper_name "${service_name}")" || hpc_dev_die "unknown explicit service '${service_name}'"
+    local logfile="${SESSION_DIR}/logs/${service_name}.log"
+    local service_state_container
+    service_state_container="$(hpc_dev_container_service_state_dir "${service_name}")"
+    local metadata_container
+    metadata_container="$(hpc_dev_container_service_file "${service_name}")"
+    local helper_args=()
+
+    hpc_dev_prepare_explicit_service_dirs "${service_name}"
+
+    case "${service_name}" in
+        sshd)
+            helper_args=(
+                --port "${SSH_PORT}"
+                --state-dir "${service_state_container}"
+                --metadata-file "${metadata_container}"
+                --authorized-keys-file "${DEV_HOME_MOUNT}/.ssh/authorized_keys"
+                --host-keys-dir "${SESSION_MOUNT}/ssh/hostkeys"
+                --bind-address "0.0.0.0"
+            )
+            ;;
+        jupyter)
+            helper_args=(
+                --port "${JUPYTER_PORT}"
+                --workspace "${WORKSPACE_MOUNT}"
+                --state-dir "${service_state_container}"
+                --metadata-file "${metadata_container}"
+                --token-file "${service_state_container}/jupyter.token"
+                --bind-address "127.0.0.1"
+            )
+            ;;
+        rstudio)
+            helper_args=(
+                --port "${RSTUDIO_PORT}"
+                --state-dir "${service_state_container}"
+                --metadata-file "${metadata_container}"
+                --cookie-file "${service_state_container}/secure-cookie-key"
+                --bind-address "127.0.0.1"
+            )
+            ;;
+    esac
+
+    hpc_dev_export_engine_env
+    "${ENGINE_CMD}" exec "${BIND_ARGS[@]}" -H "${CONTAINER_HOME_SOURCE}" \
+        "${IMAGE}" "${helper_name}" "${helper_args[@]}" >"${logfile}" 2>&1 &
+
+    local pid=$!
+    printf '%s\n' "${pid}" > "${SESSION_DIR}/pids/${service_name}.pid"
+}
+
 hpc_dev_start_local() {
     hpc_dev_assign_local_ports
 
@@ -74,18 +151,33 @@ hpc_dev_start_local() {
 
     if hpc_dev_service_requested "sshd"
     then
-        hpc_dev_run_legacy_service_local "sshd" "run_sshd.sh"
-        hpc_dev_wait_for_legacy_service "sshd" 30 || hpc_dev_die "sshd did not register in time"
+        if [[ "${HELPER_MODE}" == "explicit" ]]
+        then
+            hpc_dev_run_explicit_service_local "sshd"
+        else
+            hpc_dev_run_legacy_service_local "sshd" "run_sshd.sh"
+        fi
+        hpc_dev_wait_for_service "sshd" 30 || hpc_dev_die "sshd did not register in time"
     fi
     if hpc_dev_service_requested "jupyter"
     then
-        hpc_dev_run_legacy_service_local "jupyter" "run_jupyterlab.sh"
-        hpc_dev_wait_for_legacy_service "jupyter" 30 || hpc_dev_die "jupyter did not register in time"
+        if [[ "${HELPER_MODE}" == "explicit" ]]
+        then
+            hpc_dev_run_explicit_service_local "jupyter"
+        else
+            hpc_dev_run_legacy_service_local "jupyter" "run_jupyterlab.sh"
+        fi
+        hpc_dev_wait_for_service "jupyter" 30 || hpc_dev_die "jupyter did not register in time"
     fi
     if hpc_dev_service_requested "rstudio"
     then
-        hpc_dev_run_legacy_service_local "rstudio" "run_rstudioserver.sh"
-        hpc_dev_wait_for_legacy_service "rstudio" 30 || hpc_dev_die "rstudio did not register in time"
+        if [[ "${HELPER_MODE}" == "explicit" ]]
+        then
+            hpc_dev_run_explicit_service_local "rstudio"
+        else
+            hpc_dev_run_legacy_service_local "rstudio" "run_rstudioserver.sh"
+        fi
+        hpc_dev_wait_for_service "rstudio" 30 || hpc_dev_die "rstudio did not register in time"
     fi
 
     hpc_dev_note "Session started: ${SESSION_ID}"

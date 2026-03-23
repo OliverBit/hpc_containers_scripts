@@ -6,6 +6,7 @@ Command: ${COMMAND}
 Mode: ${MODE}
 Image: ${IMAGE}
 Engine: ${ENGINE_CMD}
+Helper mode: ${HELPER_MODE}
 Workspace: ${WORKSPACE_DIR} -> ${WORKSPACE_MOUNT}
 Home mode: ${HOME_MODE}
 Container home source: ${CONTAINER_HOME_SOURCE}
@@ -44,6 +45,7 @@ hpc_dev_print_status() {
     echo "Session: ${SESSION_ID}"
     echo "Mode: ${MODE}"
     echo "Image: ${IMAGE}"
+    echo "Helper mode: ${HELPER_MODE}"
     if [[ "${MODE}" == "slurm" && -f "${SESSION_DIR}/slurm/job.env" ]]
     then
         hpc_dev_source_env_file "${SESSION_DIR}/slurm/job.env" || true
@@ -66,11 +68,27 @@ hpc_dev_print_ssh_command() {
     then
         echo "ssh -p ${PORT} ${USER}@127.0.0.1"
     else
-        echo "ssh -J ${USER}@${LOGIN_HOST} ${USER}@${RAW_HOST} -p ${PORT}"
+        echo "ssh -J ${USER}@${LOGIN_HOST} ${USER}@${RAW_HOST:-${HOST}} -p ${PORT}"
     fi
 }
 
 hpc_dev_print_tunnel_command() {
+    if [[ "${MODE}" == "local" ]]
+    then
+        echo "Local mode does not require SSH tunnels."
+        if [[ -f "$(hpc_dev_service_file jupyter)" ]]
+        then
+            hpc_dev_source_env_file "$(hpc_dev_service_file jupyter)" || true
+            echo "Jupyter: http://127.0.0.1:${PORT}?token=${TOKEN}"
+        fi
+        if [[ -f "$(hpc_dev_service_file rstudio)" ]]
+        then
+            hpc_dev_source_env_file "$(hpc_dev_service_file rstudio)" || true
+            echo "RStudio: http://127.0.0.1:${PORT}"
+        fi
+        return 0
+    fi
+
     local ssh_env
     ssh_env="$(hpc_dev_service_file sshd)"
     hpc_dev_source_env_file "${ssh_env}" || hpc_dev_die "ssh service metadata not available"
