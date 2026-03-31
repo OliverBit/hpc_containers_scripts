@@ -89,8 +89,8 @@ echo "== Helper help checks =="
 echo "ok"
 
 echo "== Binary checks =="
-"${ENGINE_CMD}" exec "${IMAGE}" bash -lc 'which sshd && which jupyter && which python3 && which code-server'
-if "${ENGINE_CMD}" exec "${IMAGE}" bash -lc 'which rserver' >/dev/null 2>&1
+"${ENGINE_CMD}" exec "${IMAGE}" bash -lc 'command -v sshd && command -v jupyter && command -v python3 && command -v code-server'
+if "${ENGINE_CMD}" exec "${IMAGE}" bash -lc 'command -v rserver' >/dev/null 2>&1
 then
     echo "rserver: present"
 else
