@@ -8,7 +8,7 @@ hpc_dev_abs_path() {
 
 hpc_dev_safe_name() {
     local value="$1"
-    printf '%s' "${value}" | tr -cs '[:alnum:]._-:' '-'
+    printf '%s' "${value}" | tr -cs '[:alnum:]._:-' '-'
 }
 
 hpc_dev_resolve_paths() {
