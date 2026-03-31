@@ -13,7 +13,14 @@ hpc_dev_write_env_file() {
     local line
     for line in "$@"
     do
-        printf '%s\n' "${line}" >> "${tmp_path}"
+        if [[ "${line}" == *=* ]]
+        then
+            local key="${line%%=*}"
+            local value="${line#*=}"
+            printf '%s=%q\n' "${key}" "${value}" >> "${tmp_path}"
+        else
+            printf '%s\n' "${line}" >> "${tmp_path}"
+        fi
     done
     mv "${tmp_path}" "${target_path}"
 }
