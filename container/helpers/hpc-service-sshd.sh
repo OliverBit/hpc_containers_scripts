@@ -73,16 +73,26 @@ HostKey ${HOST_KEYS_DIR}/ssh_host_rsa_key
 HostKey ${HOST_KEYS_DIR}/ssh_host_ecdsa_key
 HostKey ${HOST_KEYS_DIR}/ssh_host_ed25519_key
 AuthorizedKeysFile ${AUTHORIZED_KEYS_FILE}
+PidFile ${STATE_DIR}/sshd.pid
 PasswordAuthentication no
 ChallengeResponseAuthentication no
 UsePAM no
+UseDNS no
 X11Forwarding yes
+AllowAgentForwarding yes
+AllowTcpForwarding yes
+AllowStreamLocalForwarding yes
+PermitTTY yes
 PrintMotd no
+PrintLastLog no
+ClientAliveInterval 30
+ClientAliveCountMax 6
+LogLevel VERBOSE
 AcceptEnv LANG LC_*
 Subsystem sftp internal-sftp
 EOF
 
-/usr/sbin/sshd -D -p "${PORT}" -o "ListenAddress=${BIND_ADDRESS}" -f "${SSHD_CONFIG}" &
+/usr/sbin/sshd -D -e -p "${PORT}" -o "ListenAddress=${BIND_ADDRESS}" -f "${SSHD_CONFIG}" &
 CHILD_PID=$!
 
 hpc_service_wait_for_port 127.0.0.1 "${PORT}" 30 || hpc_service_die "sshd did not become ready on port ${PORT}"
