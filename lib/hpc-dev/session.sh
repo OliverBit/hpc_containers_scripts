@@ -45,10 +45,16 @@ hpc_dev_sync_authorized_keys() {
     local source_auth="${REAL_HOME_DIR}/.ssh/authorized_keys"
     local target_auth="${DEV_HOME_DIR}/.ssh/authorized_keys"
     local tmp_auth="${target_auth}.tmp"
+    local auth_inputs=()
 
     if [[ -f "${source_auth}" ]]
     then
-        cat "${source_auth}" "${target_auth}" 2>/dev/null | awk '!seen[$0]++' > "${tmp_auth}"
+        auth_inputs+=("${source_auth}")
+        if [[ -f "${target_auth}" ]]
+        then
+            auth_inputs+=("${target_auth}")
+        fi
+        cat "${auth_inputs[@]}" | awk '!seen[$0]++' > "${tmp_auth}"
         mv "${tmp_auth}" "${target_auth}"
         chmod 600 "${target_auth}" || true
     elif [[ ! -f "${target_auth}" ]]
