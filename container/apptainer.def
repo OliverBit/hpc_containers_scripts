@@ -4,8 +4,9 @@ From: ubuntu:24.04
 %post
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
-    apt-get install -y bash ca-certificates curl git iproute2 less netcat-openbsd openssl openssh-server procps python3 python3-pip
+    apt-get install -y bash ca-certificates curl git iproute2 less netcat-openbsd nodejs npm openssl openssh-server procps python3 python3-pip
     pip3 install --no-cache-dir jupyterlab
+    npm install --global code-server
     mkdir -p /var/run/sshd
 
     install -d /usr/local/bin
@@ -13,16 +14,19 @@ From: ubuntu:24.04
     install -m 0755 /tmp/hpc-service-sshd.sh /usr/local/bin/hpc-service-sshd.sh
     install -m 0755 /tmp/hpc-service-jupyter.sh /usr/local/bin/hpc-service-jupyter.sh
     install -m 0755 /tmp/hpc-service-rstudio.sh /usr/local/bin/hpc-service-rstudio.sh
+    install -m 0755 /tmp/hpc-service-codeserver.sh /usr/local/bin/hpc-service-codeserver.sh
 
 %files
     container/helpers/hpc-service-lib.sh /tmp/hpc-service-lib.sh
     container/helpers/hpc-service-sshd.sh /tmp/hpc-service-sshd.sh
     container/helpers/hpc-service-jupyter.sh /tmp/hpc-service-jupyter.sh
     container/helpers/hpc-service-rstudio.sh /tmp/hpc-service-rstudio.sh
+    container/helpers/hpc-service-codeserver.sh /tmp/hpc-service-codeserver.sh
 
 %runscript
     exec "$@"
 
 %help
     Starter Apptainer definition for the owned-image path.
+    Includes explicit sshd, Jupyter, and code-server helpers.
     Extend this with site-specific R and RStudio Server installation steps before production use.

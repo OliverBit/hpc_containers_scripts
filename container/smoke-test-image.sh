@@ -8,7 +8,7 @@ IMAGE=""
 KEEP_TMP="false"
 TMP_ROOT=""
 SESSION_DIR=""
-JUPYTER_HOST_PID=""
+HELPER_PIDS=()
 
 usage() {
     cat <<'EOF'
@@ -19,6 +19,7 @@ What it checks:
   1. helper binaries answer to --help
   2. core binaries exist in the image
   3. Jupyter helper can write metadata and token files
+  4. code-server helper can write metadata and password files
 EOF
 }
 
@@ -46,11 +47,13 @@ resolve_engine() {
 }
 
 cleanup() {
-    if [[ -n "${JUPYTER_HOST_PID}" ]]
-    then
-        kill "${JUPYTER_HOST_PID}" >/dev/null 2>&1 || true
-        wait "${JUPYTER_HOST_PID}" >/dev/null 2>&1 || true
-    fi
+    local pid
+    for pid in "${HELPER_PIDS[@]-}"
+    do
+        [[ -n "${pid}" ]] || continue
+        kill "${pid}" >/dev/null 2>&1 || true
+        wait "${pid}" >/dev/null 2>&1 || true
+    done
     if [[ "${KEEP_TMP}" != "true" && -n "${TMP_ROOT}" && -d "${TMP_ROOT}" ]]
     then
         rm -rf "${TMP_ROOT}"
@@ -82,10 +85,11 @@ echo "== Helper help checks =="
 "${ENGINE_CMD}" exec "${IMAGE}" hpc-service-sshd.sh --help >/dev/null
 "${ENGINE_CMD}" exec "${IMAGE}" hpc-service-jupyter.sh --help >/dev/null
 "${ENGINE_CMD}" exec "${IMAGE}" hpc-service-rstudio.sh --help >/dev/null || true
+"${ENGINE_CMD}" exec "${IMAGE}" hpc-service-codeserver.sh --help >/dev/null
 echo "ok"
 
 echo "== Binary checks =="
-"${ENGINE_CMD}" exec "${IMAGE}" bash -lc 'which sshd && which jupyter && which python3'
+"${ENGINE_CMD}" exec "${IMAGE}" bash -lc 'which sshd && which jupyter && which python3 && which code-server'
 if "${ENGINE_CMD}" exec "${IMAGE}" bash -lc 'which rserver' >/dev/null 2>&1
 then
     echo "rserver: present"
@@ -104,7 +108,7 @@ echo "== Jupyter helper smoke test =="
     --state-dir /state \
     --metadata-file /state/jupyter.env > "${SESSION_DIR}/state/jupyter.log" 2>&1 &
 
-JUPYTER_HOST_PID=$!
+HELPER_PIDS+=("$!")
 
 for _ in $(seq 1 30)
 do
@@ -125,6 +129,69 @@ done
 grep -q '^SERVICE=jupyter$' "${SESSION_DIR}/state/jupyter.env" || {
     echo "Error: jupyter metadata file is malformed" >&2
     cat "${SESSION_DIR}/state/jupyter.env" >&2
+    exit 1
+}
+
+echo "ok"
+
+echo "== code-server helper smoke test =="
+"${ENGINE_CMD}" exec \
+    -B "${SESSION_DIR}/workspace:/workspace" \
+    -B "${SESSION_DIR}/state:/state" \
+    "${IMAGE}" \
+    hpc-service-codeserver.sh \
+    --port 38889 \
+    --workspace /workspace \
+    --state-dir /state \
+    --metadata-file /state/codeserver.env \
+    --password-file /state/codeserver.password \
+    --config-file /state/codeserver-config.yaml \
+    --user-data-dir /state/code-server-data \
+    --extensions-dir /state/code-server-data/extensions \
+    --cache-home /state/code-server-cache > "${SESSION_DIR}/state/codeserver.log" 2>&1 &
+
+HELPER_PIDS+=("$!")
+
+for _ in $(seq 1 30)
+do
+    if [[ -f "${SESSION_DIR}/state/codeserver.env" ]]
+    then
+        break
+    fi
+    sleep 1
+done
+
+[[ -f "${SESSION_DIR}/state/codeserver.env" ]] || {
+    echo "Error: code-server metadata file was not created" >&2
+    echo "Log follows:" >&2
+    cat "${SESSION_DIR}/state/codeserver.log" >&2 || true
+    exit 1
+}
+
+grep -q '^SERVICE=codeserver$' "${SESSION_DIR}/state/codeserver.env" || {
+    echo "Error: code-server metadata file is malformed" >&2
+    cat "${SESSION_DIR}/state/codeserver.env" >&2
+    exit 1
+}
+
+grep -q '^PASSWORD=' "${SESSION_DIR}/state/codeserver.env" || {
+    echo "Error: code-server metadata is missing PASSWORD" >&2
+    cat "${SESSION_DIR}/state/codeserver.env" >&2
+    exit 1
+}
+
+[[ -f "${SESSION_DIR}/state/codeserver-config.yaml" ]] || {
+    echo "Error: code-server config file was not created" >&2
+    exit 1
+}
+
+[[ -d "${SESSION_DIR}/state/code-server-data/extensions" ]] || {
+    echo "Error: code-server extensions directory was not created" >&2
+    exit 1
+}
+
+[[ -d "${SESSION_DIR}/state/code-server-cache" ]] || {
+    echo "Error: code-server cache home was not created" >&2
     exit 1
 }
 

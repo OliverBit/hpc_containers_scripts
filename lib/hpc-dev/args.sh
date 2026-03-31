@@ -34,6 +34,69 @@ hpc_dev_quote_args() {
     done
 }
 
+hpc_dev_service_requested() {
+    local wanted="$1"
+    local item
+    for item in "${SERVICES[@]-}"
+    do
+        [[ -n "${item}" ]] || continue
+        if [[ "${item}" == "${wanted}" ]]
+        then
+            return 0
+        fi
+    done
+    return 1
+}
+
+hpc_dev_is_browser_service() {
+    case "$1" in
+        jupyter|rstudio|codeserver) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+hpc_dev_count_browser_services() {
+    local count=0
+    local item
+    for item in "${SERVICES[@]-}"
+    do
+        [[ -n "${item}" ]] || continue
+        if hpc_dev_is_browser_service "${item}"
+        then
+            count=$((count + 1))
+        fi
+    done
+    printf '%s\n' "${count}"
+}
+
+hpc_dev_browser_services_csv() {
+    local services=()
+    local item
+    for item in "${SERVICES[@]-}"
+    do
+        [[ -n "${item}" ]] || continue
+        if hpc_dev_is_browser_service "${item}"
+        then
+            services+=("${item}")
+        fi
+    done
+    hpc_dev_join_by , "${services[@]-}"
+}
+
+hpc_dev_array_contains() {
+    local wanted="$1"
+    shift || true
+    local item
+    for item in "$@"
+    do
+        if [[ "${item}" == "${wanted}" ]]
+        then
+            return 0
+        fi
+    done
+    return 1
+}
+
 hpc_dev_usage() {
     cat <<'EOF'
 hpc-dev
@@ -50,7 +113,8 @@ Common launch options:
   --mode MODE                 local or slurm
   --image IMAGE               image path or docker:// URI
   --workspace PATH            host workspace path
-  --service NAME              repeatable: sshd, jupyter, rstudio
+  --access MODE               ssh, browser, or both
+  --service NAME              repeatable: sshd, jupyter, rstudio, codeserver
   --group NAME                repeatable group mount resolved from config
   --bind SPEC                 repeatable bind: host[:container[:opts]]
   --home-mode MODE            dev, real, or project
@@ -67,6 +131,7 @@ Common launch options:
   --ssh-port PORT|auto
   --jupyter-port PORT|auto
   --rstudio-port PORT|auto
+  --codeserver-port PORT|auto
 
 SLURM options:
   --partition NAME
@@ -89,7 +154,8 @@ hpc_dev_reset_options() {
     MODE=""
     IMAGE=""
     WORKSPACE=""
-    SERVICES=("sshd")
+    ACCESS_MODE="ssh"
+    SERVICES=()
     GROUP_NAMES=()
     BINDS=()
     HOME_MODE="dev"
@@ -114,6 +180,7 @@ hpc_dev_reset_options() {
     SSH_PORT_REQUEST="auto"
     JUPYTER_PORT_REQUEST="auto"
     RSTUDIO_PORT_REQUEST="auto"
+    CODESERVER_PORT_REQUEST="auto"
     SSH_COMMAND_ARGS=()
 }
 
@@ -130,6 +197,7 @@ hpc_dev_parse_launch_args() {
             --mode) MODE="${2:-}"; hpc_dev_require_value "$1" "${MODE}"; shift 2 ;;
             --image) IMAGE="${2:-}"; hpc_dev_require_value "$1" "${IMAGE}"; shift 2 ;;
             --workspace) WORKSPACE="${2:-}"; hpc_dev_require_value "$1" "${WORKSPACE}"; shift 2 ;;
+            --access) ACCESS_MODE="${2:-}"; hpc_dev_require_value "$1" "${ACCESS_MODE}"; shift 2 ;;
             --service) SERVICES+=("${2:-}"); hpc_dev_require_value "$1" "${2:-}"; shift 2 ;;
             --group) GROUP_NAMES+=("${2:-}"); hpc_dev_require_value "$1" "${2:-}"; shift 2 ;;
             --bind) BINDS+=("${2:-}"); hpc_dev_require_value "$1" "${2:-}"; shift 2 ;;
@@ -153,6 +221,7 @@ hpc_dev_parse_launch_args() {
             --ssh-port) SSH_PORT_REQUEST="${2:-}"; hpc_dev_require_value "$1" "${SSH_PORT_REQUEST}"; shift 2 ;;
             --jupyter-port) JUPYTER_PORT_REQUEST="${2:-}"; hpc_dev_require_value "$1" "${JUPYTER_PORT_REQUEST}"; shift 2 ;;
             --rstudio-port) RSTUDIO_PORT_REQUEST="${2:-}"; hpc_dev_require_value "$1" "${RSTUDIO_PORT_REQUEST}"; shift 2 ;;
+            --codeserver-port) CODESERVER_PORT_REQUEST="${2:-}"; hpc_dev_require_value "$1" "${CODESERVER_PORT_REQUEST}"; shift 2 ;;
             -h|--help) hpc_dev_usage; exit 0 ;;
             *) hpc_dev_die "unknown option for ${COMMAND}: $1" ;;
         esac
@@ -189,6 +258,11 @@ hpc_dev_validate_launch_args() {
         *) hpc_dev_die "--mode must be local or slurm" ;;
     esac
 
+    case "${ACCESS_MODE}" in
+        ssh|browser|both) ;;
+        *) hpc_dev_die "--access must be ssh, browser, or both" ;;
+    esac
+
     case "${HOME_MODE}" in
         dev|real|project) ;;
         *) hpc_dev_die "--home-mode must be dev, real, or project" ;;
@@ -198,6 +272,72 @@ hpc_dev_validate_launch_args() {
         legacy|explicit) ;;
         *) hpc_dev_die "--helper-mode must be legacy or explicit" ;;
     esac
+
+    local validated_services=()
+    local item
+    for item in "${SERVICES[@]-}"
+    do
+        [[ -n "${item}" ]] || continue
+        case "${item}" in
+            sshd|jupyter|rstudio|codeserver) ;;
+            *) hpc_dev_die "unsupported service '${item}'" ;;
+        esac
+        if ! hpc_dev_array_contains "${item}" "${validated_services[@]-}"
+        then
+            validated_services+=("${item}")
+        fi
+    done
+    SERVICES=("${validated_services[@]-}")
+
+    if [[ "${HELPER_MODE}" != "explicit" && "${ACCESS_MODE}" != "ssh" ]]
+    then
+        hpc_dev_die "--access ${ACCESS_MODE} requires --helper-mode explicit"
+    fi
+
+    if hpc_dev_service_requested "codeserver" && [[ "${HELPER_MODE}" != "explicit" ]]
+    then
+        hpc_dev_die "--service codeserver requires --helper-mode explicit"
+    fi
+
+    local browser_count
+    browser_count="$(hpc_dev_count_browser_services)"
+    local normalized_services=()
+
+    case "${ACCESS_MODE}" in
+        ssh)
+            normalized_services=("sshd")
+            for item in "${SERVICES[@]-}"
+            do
+                [[ -n "${item}" ]] || continue
+                if [[ "${item}" != "sshd" ]]
+                then
+                    normalized_services+=("${item}")
+                fi
+            done
+            ;;
+        browser)
+            if hpc_dev_service_requested "sshd"
+            then
+                hpc_dev_die "--access browser cannot be combined with --service sshd"
+            fi
+            [[ "${browser_count}" -gt 0 ]] || hpc_dev_die "--access browser requires at least one of jupyter, rstudio, or codeserver"
+            normalized_services=("${SERVICES[@]-}")
+            ;;
+        both)
+            [[ "${browser_count}" -gt 0 ]] || hpc_dev_die "--access both requires at least one of jupyter, rstudio, or codeserver"
+            normalized_services=("sshd")
+            for item in "${SERVICES[@]-}"
+            do
+                [[ -n "${item}" ]] || continue
+                if [[ "${item}" != "sshd" ]]
+                then
+                    normalized_services+=("${item}")
+                fi
+            done
+            ;;
+    esac
+
+    SERVICES=("${normalized_services[@]-}")
 }
 
 hpc_dev_main() {

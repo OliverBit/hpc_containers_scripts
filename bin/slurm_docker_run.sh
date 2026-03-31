@@ -12,13 +12,16 @@ do
         -t) IMAGE_TAG="${2:-}"; shift 2 ;;
         -H) CMD+=(--workspace "${2:-}"); shift 2 ;;
         -B) CMD+=(--bind "${2:-}"); shift 2 ;;
+        --access) CMD+=(--access "${2:-}"); shift 2 ;;
         --jupyter) CMD+=(--service jupyter); shift ;;
         --rstudio) CMD+=(--service rstudio); shift ;;
+        --codeserver) CMD+=(--service codeserver); shift ;;
         -N) CMD+=(--session-name "${2:-}"); shift 2 ;;
         -n) CMD+=(--cpus "${2:-}"); shift 2 ;;
         -m) CMD+=(--mem "${2:-}"); shift 2 ;;
         --time) CMD+=(--time "${2:-}"); shift 2 ;;
         --email) CMD+=(--email "${2:-}"); shift 2 ;;
+        --codeserver-port) CMD+=(--codeserver-port "${2:-}"); shift 2 ;;
         --engine|--singularity-path) CMD+=(--engine "${2:-}"); shift 2 ;;
         --helper-mode) CMD+=(--helper-mode "${2:-}"); shift 2 ;;
         --singularity-cache|--cache-dir) CMD+=(--cache-dir "${2:-}"); shift 2 ;;

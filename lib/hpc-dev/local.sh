@@ -1,18 +1,5 @@
 #!/usr/bin/env bash
 
-hpc_dev_service_requested() {
-    local wanted="$1"
-    local item
-    for item in "${SERVICES[@]}"
-    do
-        if [[ "${item}" == "${wanted}" ]]
-        then
-            return 0
-        fi
-    done
-    return 1
-}
-
 hpc_dev_assign_local_ports() {
     if hpc_dev_service_requested "sshd"
     then
@@ -28,6 +15,11 @@ hpc_dev_assign_local_ports() {
     then
         RSTUDIO_PORT="${RSTUDIO_PORT_REQUEST}"
         [[ "${RSTUDIO_PORT}" != "auto" ]] || RSTUDIO_PORT="$(hpc_dev_pick_local_port)"
+    fi
+    if hpc_dev_service_requested "codeserver"
+    then
+        CODESERVER_PORT="${CODESERVER_PORT_REQUEST}"
+        [[ "${CODESERVER_PORT}" != "auto" ]] || CODESERVER_PORT="$(hpc_dev_pick_local_port)"
     fi
 }
 
@@ -54,6 +46,7 @@ hpc_dev_explicit_helper_name() {
         sshd) printf '%s\n' "hpc-service-sshd.sh" ;;
         jupyter) printf '%s\n' "hpc-service-jupyter.sh" ;;
         rstudio) printf '%s\n' "hpc-service-rstudio.sh" ;;
+        codeserver) printf '%s\n' "hpc-service-codeserver.sh" ;;
         *) return 1 ;;
     esac
 }
@@ -116,6 +109,20 @@ hpc_dev_run_explicit_service_local() {
                 --bind-address "127.0.0.1"
             )
             ;;
+        codeserver)
+            helper_args=(
+                --port "${CODESERVER_PORT}"
+                --workspace "${WORKSPACE_MOUNT}"
+                --state-dir "${service_state_container}"
+                --metadata-file "${metadata_container}"
+                --password-file "${service_state_container}/codeserver.password"
+                --config-file "${service_state_container}/config.yaml"
+                --user-data-dir "${DEV_HOME_MOUNT}/.local/share/hpc-dev/code-server"
+                --extensions-dir "${DEV_HOME_MOUNT}/.local/share/hpc-dev/code-server/extensions"
+                --cache-home "${DEV_HOME_MOUNT}/.cache/hpc-dev"
+                --bind-address "127.0.0.1"
+            )
+            ;;
     esac
 
     hpc_dev_export_engine_env
@@ -144,6 +151,10 @@ hpc_dev_start_local() {
         hpc_dev_ensure_dir "${SESSION_DIR}/rstudio/var_run"
         BIND_ARGS+=("-B" "${SESSION_DIR}/rstudio/var_lib:/var/lib/rstudio-server")
         BIND_ARGS+=("-B" "${SESSION_DIR}/rstudio/var_run:/var/run/rstudio-server")
+    fi
+    if hpc_dev_service_requested "codeserver"
+    then
+        export CODESERVER_PORT
     fi
 
     hpc_dev_export_engine_env
@@ -178,6 +189,16 @@ hpc_dev_start_local() {
             hpc_dev_run_legacy_service_local "rstudio" "run_rstudioserver.sh"
         fi
         hpc_dev_wait_for_service "rstudio" 30 || hpc_dev_die "rstudio did not register in time"
+    fi
+    if hpc_dev_service_requested "codeserver"
+    then
+        if [[ "${HELPER_MODE}" == "explicit" ]]
+        then
+            hpc_dev_run_explicit_service_local "codeserver"
+        else
+            hpc_dev_die "codeserver is supported only with --helper-mode explicit"
+        fi
+        hpc_dev_wait_for_service "codeserver" 30 || hpc_dev_die "codeserver did not register in time"
     fi
 
     hpc_dev_note "Session started: ${SESSION_ID}"

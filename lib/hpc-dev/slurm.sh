@@ -127,6 +127,22 @@ EOF
         fi
     fi
 
+    if hpc_dev_service_requested "codeserver"
+    then
+        if [[ "${CODESERVER_PORT_REQUEST}" == "auto" ]]
+        then
+            echo 'export CODESERVER_PORT="$(pick_port)"' >> "${job_script}"
+        else
+            echo "export CODESERVER_PORT=\"${CODESERVER_PORT_REQUEST}\"" >> "${job_script}"
+        fi
+        if [[ "${HELPER_MODE}" == "explicit" ]]
+        then
+            echo "\"${ENGINE_CMD}\" exec ${quoted_binds}-H \"${CONTAINER_HOME_SOURCE}\" \"${IMAGE}\" hpc-service-codeserver.sh --port \"\${CODESERVER_PORT}\" --workspace \"${WORKSPACE_MOUNT}\" --state-dir \"${SESSION_MOUNT}/services/codeserver.state\" --metadata-file \"${SESSION_MOUNT}/services/codeserver.env\" --password-file \"${SESSION_MOUNT}/services/codeserver.state/codeserver.password\" --config-file \"${SESSION_MOUNT}/services/codeserver.state/config.yaml\" --user-data-dir \"${DEV_HOME_MOUNT}/.local/share/hpc-dev/code-server\" --extensions-dir \"${DEV_HOME_MOUNT}/.local/share/hpc-dev/code-server/extensions\" --cache-home \"${DEV_HOME_MOUNT}/.cache/hpc-dev\" --bind-address 127.0.0.1 >\"${SESSION_DIR}/logs/codeserver.log\" 2>&1 &" >> "${job_script}"
+        else
+            echo "echo 'codeserver requires --helper-mode explicit' >&2; exit 1" >> "${job_script}"
+        fi
+    fi
+
     cat >> "${job_script}" <<'EOF'
 while true
 do
@@ -158,6 +174,10 @@ hpc_dev_start_slurm() {
     if hpc_dev_service_requested "rstudio"
     then
         hpc_dev_wait_for_service "rstudio" 120 || hpc_dev_die "rstudio did not register in time"
+    fi
+    if hpc_dev_service_requested "codeserver"
+    then
+        hpc_dev_wait_for_service "codeserver" 120 || hpc_dev_die "codeserver did not register in time"
     fi
 
     hpc_dev_note "Session started: ${SESSION_ID}"

@@ -66,6 +66,7 @@ hpc_dev_write_session_env() {
         "IMAGE=${IMAGE}" \
         "ENGINE_CMD=${ENGINE_CMD}" \
         "LOGIN_HOST=${LOGIN_HOST}" \
+        "ACCESS_MODE=${ACCESS_MODE}" \
         "WORKSPACE_DIR=${WORKSPACE_DIR}" \
         "WORKSPACE_MOUNT=${WORKSPACE_MOUNT}" \
         "REAL_HOME_DIR=${REAL_HOME_DIR}" \
@@ -86,11 +87,13 @@ hpc_dev_write_session_env() {
         "MEMORY=${MEMORY}" \
         "EMAIL=${EMAIL}" \
         "SERVICES_CSV=$(hpc_dev_join_by , "${SERVICES[@]-}")" \
+        "BROWSER_SERVICES_CSV=$(hpc_dev_browser_services_csv)" \
         "GROUP_NAMES_CSV=$(hpc_dev_join_by , "${GROUP_NAMES[@]-}")" \
         "GROUP_BIND_PATHS_CSV=$(hpc_dev_join_by , "${GROUP_BIND_PATHS[@]:-}")" \
         "SSH_PORT_REQUEST=${SSH_PORT_REQUEST}" \
         "JUPYTER_PORT_REQUEST=${JUPYTER_PORT_REQUEST}" \
-        "RSTUDIO_PORT_REQUEST=${RSTUDIO_PORT_REQUEST}"
+        "RSTUDIO_PORT_REQUEST=${RSTUDIO_PORT_REQUEST}" \
+        "CODESERVER_PORT_REQUEST=${CODESERVER_PORT_REQUEST}"
 }
 
 hpc_dev_source_env_file() {

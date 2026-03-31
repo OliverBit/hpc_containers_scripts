@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y \
     iproute2 \
     less \
     netcat-openbsd \
+    nodejs \
+    npm \
     openssl \
     openssh-server \
     procps \
@@ -18,6 +20,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --no-cache-dir jupyterlab
+RUN npm install --global code-server
 
 RUN mkdir -p /var/run/sshd
 
@@ -28,9 +31,11 @@ COPY container/helpers/hpc-service-lib.sh /usr/local/bin/hpc-service-lib.sh
 COPY container/helpers/hpc-service-sshd.sh /usr/local/bin/hpc-service-sshd.sh
 COPY container/helpers/hpc-service-jupyter.sh /usr/local/bin/hpc-service-jupyter.sh
 COPY container/helpers/hpc-service-rstudio.sh /usr/local/bin/hpc-service-rstudio.sh
+COPY container/helpers/hpc-service-codeserver.sh /usr/local/bin/hpc-service-codeserver.sh
 
 RUN chmod +x \
     /usr/local/bin/hpc-service-lib.sh \
     /usr/local/bin/hpc-service-sshd.sh \
     /usr/local/bin/hpc-service-jupyter.sh \
-    /usr/local/bin/hpc-service-rstudio.sh
+    /usr/local/bin/hpc-service-rstudio.sh \
+    /usr/local/bin/hpc-service-codeserver.sh
