@@ -2,6 +2,7 @@ FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HPC_DEV_VENV=/opt/hpc-dev/venv
+ENV CODE_SERVER_VERSION=4.112.0
 ENV PATH="${HPC_DEV_VENV}/bin:${PATH}"
 
 RUN apt-get update && apt-get install -y \
@@ -12,8 +13,6 @@ RUN apt-get update && apt-get install -y \
     iproute2 \
     less \
     netcat-openbsd \
-    nodejs \
-    npm \
     openssl \
     openssh-server \
     procps \
@@ -24,7 +23,10 @@ RUN apt-get update && apt-get install -y \
 RUN python3 -m venv "${HPC_DEV_VENV}" \
     && "${HPC_DEV_VENV}/bin/pip" install --no-cache-dir --upgrade pip \
     && "${HPC_DEV_VENV}/bin/pip" install --no-cache-dir jupyterlab
-RUN npm install --global code-server
+RUN curl -fsSL "https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION}-linux-amd64.tar.gz" \
+    | tar -xz -C /usr/local/lib \
+    && mv "/usr/local/lib/code-server-${CODE_SERVER_VERSION}-linux-amd64" /usr/local/lib/code-server \
+    && ln -sf /usr/local/lib/code-server/bin/code-server /usr/local/bin/code-server
 
 RUN mkdir -p /var/run/sshd
 

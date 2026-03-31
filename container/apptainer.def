@@ -4,12 +4,15 @@ From: ubuntu:24.04
 %post
     export DEBIAN_FRONTEND=noninteractive
     export HPC_DEV_VENV=/opt/hpc-dev/venv
+    export CODE_SERVER_VERSION=4.112.0
     apt-get update
-    apt-get install -y bash ca-certificates curl git iproute2 less netcat-openbsd nodejs npm openssl openssh-server procps python3 python3-venv
+    apt-get install -y bash ca-certificates curl git iproute2 less netcat-openbsd openssl openssh-server procps python3 python3-venv
     python3 -m venv "${HPC_DEV_VENV}"
     "${HPC_DEV_VENV}/bin/pip" install --no-cache-dir --upgrade pip
     "${HPC_DEV_VENV}/bin/pip" install --no-cache-dir jupyterlab
-    npm install --global code-server
+    curl -fsSL "https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION}-linux-amd64.tar.gz" | tar -xz -C /usr/local/lib
+    mv "/usr/local/lib/code-server-${CODE_SERVER_VERSION}-linux-amd64" /usr/local/lib/code-server
+    ln -sf /usr/local/lib/code-server/bin/code-server /usr/local/bin/code-server
     mkdir -p /var/run/sshd
 
     install -d /usr/local/bin
