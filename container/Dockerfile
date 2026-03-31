@@ -1,6 +1,8 @@
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV HPC_DEV_VENV=/opt/hpc-dev/venv
+ENV PATH="${HPC_DEV_VENV}/bin:${PATH}"
 
 RUN apt-get update && apt-get install -y \
     bash \
@@ -16,10 +18,12 @@ RUN apt-get update && apt-get install -y \
     openssh-server \
     procps \
     python3 \
-    python3-pip \
+    python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --no-cache-dir jupyterlab
+RUN python3 -m venv "${HPC_DEV_VENV}" \
+    && "${HPC_DEV_VENV}/bin/pip" install --no-cache-dir --upgrade pip \
+    && "${HPC_DEV_VENV}/bin/pip" install --no-cache-dir jupyterlab
 RUN npm install --global code-server
 
 RUN mkdir -p /var/run/sshd

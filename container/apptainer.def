@@ -3,9 +3,12 @@ From: ubuntu:24.04
 
 %post
     export DEBIAN_FRONTEND=noninteractive
+    export HPC_DEV_VENV=/opt/hpc-dev/venv
     apt-get update
-    apt-get install -y bash ca-certificates curl git iproute2 less netcat-openbsd nodejs npm openssl openssh-server procps python3 python3-pip
-    pip3 install --no-cache-dir jupyterlab
+    apt-get install -y bash ca-certificates curl git iproute2 less netcat-openbsd nodejs npm openssl openssh-server procps python3 python3-venv
+    python3 -m venv "${HPC_DEV_VENV}"
+    "${HPC_DEV_VENV}/bin/pip" install --no-cache-dir --upgrade pip
+    "${HPC_DEV_VENV}/bin/pip" install --no-cache-dir jupyterlab
     npm install --global code-server
     mkdir -p /var/run/sshd
 
@@ -25,6 +28,10 @@ From: ubuntu:24.04
 
 %runscript
     exec "$@"
+
+%environment
+    export HPC_DEV_VENV=/opt/hpc-dev/venv
+    export PATH="${HPC_DEV_VENV}/bin:${PATH}"
 
 %help
     Starter Apptainer definition for the owned-image path.
