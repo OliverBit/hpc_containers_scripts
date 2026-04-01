@@ -18,8 +18,9 @@ Usage:
 What it checks:
   1. helper binaries answer to --help
   2. core binaries exist in the image
-  3. Jupyter helper can write metadata and token files
-  4. code-server helper can write metadata and password files
+  3. sshd helper can write metadata and accept an SSH command
+  4. Jupyter helper can write metadata and token files
+  5. code-server helper can write metadata and password files
 EOF
 }
 
@@ -74,6 +75,8 @@ done
 
 [[ -n "${IMAGE}" ]] || { usage; exit 1; }
 [[ -f "${IMAGE}" ]] || { echo "Error: image not found: ${IMAGE}" >&2; exit 1; }
+command -v ssh >/dev/null 2>&1 || { echo "Error: ssh client not found on host" >&2; exit 1; }
+command -v ssh-keygen >/dev/null 2>&1 || { echo "Error: ssh-keygen not found on host" >&2; exit 1; }
 
 ENGINE_CMD="$(resolve_engine)"
 TMP_ROOT="$(mktemp -d /tmp/hpc-dev-image-test.XXXXXX)"
@@ -96,6 +99,92 @@ then
 else
     echo "rserver: not present yet (expected until site-specific install is added)"
 fi
+
+echo "== sshd helper smoke test =="
+SSH_TEST_PORT=38887
+SSH_TEST_KEY="${SESSION_DIR}/state/ssh-smoke-key"
+SSH_STATE_DIR="${SESSION_DIR}/state/sshd"
+
+mkdir -p "${SSH_STATE_DIR}" "${SESSION_DIR}/state/hostkeys"
+ssh-keygen -q -t ed25519 -N '' -f "${SSH_TEST_KEY}" >/dev/null
+cat "${SSH_TEST_KEY}.pub" > "${SESSION_DIR}/state/authorized_keys"
+
+"${ENGINE_CMD}" exec \
+    -B "${SESSION_DIR}/state:/state" \
+    "${IMAGE}" \
+    hpc-service-sshd.sh \
+    --port "${SSH_TEST_PORT}" \
+    --state-dir /state/sshd \
+    --metadata-file /state/sshd.env \
+    --authorized-keys-file /state/authorized_keys \
+    --host-keys-dir /state/hostkeys \
+    --bind-address 127.0.0.1 > "${SESSION_DIR}/state/sshd.log" 2>&1 &
+
+HELPER_PIDS+=("$!")
+
+for _ in $(seq 1 30)
+do
+    if [[ -f "${SESSION_DIR}/state/sshd.env" ]]
+    then
+        break
+    fi
+    sleep 1
+done
+
+[[ -f "${SESSION_DIR}/state/sshd.env" ]] || {
+    echo "Error: sshd metadata file was not created" >&2
+    echo "Log follows:" >&2
+    cat "${SESSION_DIR}/state/sshd.log" >&2 || true
+    exit 1
+}
+
+grep -q '^SERVICE=sshd$' "${SESSION_DIR}/state/sshd.env" || {
+    echo "Error: sshd metadata file is malformed" >&2
+    cat "${SESSION_DIR}/state/sshd.env" >&2
+    exit 1
+}
+
+for _ in $(seq 1 30)
+do
+    if command -v nc >/dev/null 2>&1 && nc -z 127.0.0.1 "${SSH_TEST_PORT}" >/dev/null 2>&1
+    then
+        break
+    fi
+    sleep 1
+done
+
+if command -v nc >/dev/null 2>&1
+then
+    nc -z 127.0.0.1 "${SSH_TEST_PORT}" >/dev/null 2>&1 || {
+        echo "Error: sshd port ${SSH_TEST_PORT} did not open" >&2
+        cat "${SESSION_DIR}/state/sshd.log" >&2 || true
+        exit 1
+    }
+fi
+
+SSH_SMOKE_OUTPUT="$(ssh \
+    -T \
+    -o BatchMode=yes \
+    -o ConnectTimeout=5 \
+    -o StrictHostKeyChecking=no \
+    -o UserKnownHostsFile=/dev/null \
+    -i "${SSH_TEST_KEY}" \
+    -p "${SSH_TEST_PORT}" \
+    "$(id -un)@127.0.0.1" \
+    'echo ssh-ok' 2>&1)" || {
+    echo "Error: ssh remote command smoke test failed" >&2
+    printf '%s\n' "${SSH_SMOKE_OUTPUT}" >&2
+    cat "${SESSION_DIR}/state/sshd.log" >&2 || true
+    exit 1
+}
+
+grep -q 'ssh-ok' <<< "${SSH_SMOKE_OUTPUT}" || {
+    echo "Error: ssh smoke test did not return expected output" >&2
+    printf '%s\n' "${SSH_SMOKE_OUTPUT}" >&2
+    exit 1
+}
+
+echo "ok"
 
 echo "== Jupyter helper smoke test =="
 "${ENGINE_CMD}" exec \

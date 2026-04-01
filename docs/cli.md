@@ -8,6 +8,7 @@ bash bin/hpc-dev start --mode local|slurm --image IMAGE --workspace PATH [option
 bash bin/hpc-dev status --last
 bash bin/hpc-dev stop   --last
 bash bin/hpc-dev ssh    --last
+bash bin/hpc-dev ssh-config --last
 bash bin/hpc-dev tunnel --last
 ```
 
@@ -55,6 +56,12 @@ bash bin/hpc-dev plan \
   --group testa
 ```
 
+For SLURM jobs, prefer storing SIF images in shared storage instead of inside the repo checkout. A typical pattern is:
+
+```text
+/group/kalebic/Oliviero/envs/hpc-dev.sif
+```
+
 Access modes:
 
 - `--access ssh`: start `sshd`, optionally add browser services
@@ -63,21 +70,28 @@ Access modes:
 
 If `--access` is omitted, `ssh` is the default.
 
+Current recommendation:
+
+- local/VM: `ssh`, `browser`, or `both` all remain useful
+- SLURM/HPC: prefer `--access both`
+- SLURM `--access browser` is temporarily disabled because browser services bind to loopback inside the compute node and direct login-host forwarding is not reliable yet
+
 Examples:
 
 ```bash
-# SSH-first remote development with Jupyter available through the container SSH tunnel
+# Recommended HPC mode: VS Code/Cursor/Codex over SSH plus Jupyter through the same session
 bash bin/hpc-dev start \
   --mode slurm \
   --image /path/to/hpc-dev.sif \
   --workspace /path/to/project \
+  --access both \
   --service jupyter \
   --helper-mode explicit \
   --group kalebic
 
-# Browser-only Jupyter session
+# Local or VM browser-only Jupyter session
 bash bin/hpc-dev start \
-  --mode slurm \
+  --mode local \
   --image /path/to/hpc-dev.sif \
   --workspace /path/to/project \
   --access browser \
@@ -114,3 +128,30 @@ Recommended rollout:
 - keep `HELPER_MODE=legacy` as the default until the owned image passes the smoke test
 - use `--helper-mode explicit` only with the owned image path
 - use `--access browser` and `--service codeserver` only on the explicit helper path
+- prefer `--access both` on SLURM so browser services tunnel through container `sshd`
+
+Filesystem layout inside the container:
+
+- project workspace: `/workspace`
+- persistent dev home: the default login directory
+- real host home: `/host-home`
+- group/shared storage: its real mounted path, for example `/group/kalebic`
+
+VS Code Remote-SSH workflow:
+
+1. Start a SLURM session with `--access both`.
+2. Print SSH config blocks with:
+
+```bash
+bash bin/hpc-dev ssh-config --last
+```
+
+3. Paste the printed block into `~/.ssh/config` on your Mac.
+4. Connect from local VS Code using Remote-SSH.
+5. Once connected, open `/workspace` explicitly. The remote window lands in the persistent dev home first by design.
+
+Editor note:
+
+- `code-server` works and is isolated from Posit Workbench state.
+- GitHub/Copilot chat-style extensions inside `code-server` should be treated as best-effort, not the primary supported editor workflow.
+- local VS Code over Remote-SSH is the recommended editor-of-record path.

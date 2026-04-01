@@ -107,6 +107,7 @@ Usage:
   hpc-dev status [SESSION_ID|--last]
   hpc-dev stop   [SESSION_ID|--last]
   hpc-dev ssh    [SESSION_ID|--last]
+  hpc-dev ssh-config [SESSION_ID|--last]
   hpc-dev tunnel [SESSION_ID|--last]
 
 Common launch options:
@@ -145,6 +146,7 @@ Session lookup:
 
 Notes:
   * `ssh` and `tunnel` print the command to run; they do not execute it.
+  * `ssh-config` prints ready-to-paste SSH config blocks for VS Code Remote-SSH or terminal use.
   * `plan` resolves mounts, paths, cache policy, and engine without launching.
 EOF
 }
@@ -294,6 +296,11 @@ hpc_dev_validate_launch_args() {
         hpc_dev_die "--access ${ACCESS_MODE} requires --helper-mode explicit"
     fi
 
+    if [[ "${MODE}" == "slurm" && "${ACCESS_MODE}" == "browser" ]]
+    then
+        hpc_dev_die "--mode slurm --access browser is temporarily disabled: browser services bind to loopback on the compute node, so direct login-host forwarding is not reliable. Use --access both instead."
+    fi
+
     if hpc_dev_service_requested "codeserver" && [[ "${HELPER_MODE}" != "explicit" ]]
     then
         hpc_dev_die "--service codeserver requires --helper-mode explicit"
@@ -359,16 +366,18 @@ hpc_dev_main() {
                 hpc_dev_print_plan
             elif [[ "${MODE}" == "local" ]]
             then
+                hpc_dev_note "Preparing session ${SESSION_ID} ..."
                 hpc_dev_prepare_session_tree
                 hpc_dev_write_session_env
                 hpc_dev_start_local
             else
+                hpc_dev_note "Preparing session ${SESSION_ID} ..."
                 hpc_dev_prepare_session_tree
                 hpc_dev_write_session_env
                 hpc_dev_start_slurm
             fi
             ;;
-        status|stop|ssh|tunnel)
+        status|stop|ssh|ssh-config|tunnel)
             hpc_dev_parse_session_args "$@"
             hpc_dev_load_config
             hpc_dev_resolve_existing_session
@@ -376,6 +385,7 @@ hpc_dev_main() {
                 status) hpc_dev_print_status ;;
                 stop) hpc_dev_stop_session ;;
                 ssh) hpc_dev_print_ssh_command ;;
+                ssh-config) hpc_dev_print_ssh_config ;;
                 tunnel) hpc_dev_print_tunnel_command ;;
             esac
             ;;

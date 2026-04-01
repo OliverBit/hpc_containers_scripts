@@ -156,27 +156,33 @@ EOF
 hpc_dev_start_slurm() {
     hpc_dev_write_slurm_job_script
     local submit_output
+    hpc_dev_note "Submitting SLURM job ..."
     submit_output="$(sbatch "${SESSION_DIR}/slurm/job.sh")" || hpc_dev_die "sbatch failed"
     local job_id
     job_id="$(sed -n 's/Submitted batch job \([0-9][0-9]*\)/\1/p' <<< "${submit_output}")"
     [[ -n "${job_id}" ]] || hpc_dev_die "failed to parse sbatch output: ${submit_output}"
 
     hpc_dev_write_env_file "${SESSION_DIR}/slurm/job.env" "JOB_ID=${job_id}" "SUBMIT_OUTPUT=${submit_output}"
+    hpc_dev_note "Submitted SLURM job ${job_id}."
 
     if hpc_dev_service_requested "sshd"
     then
+        hpc_dev_note "Waiting for sshd ..."
         hpc_dev_wait_for_service "sshd" 120 || hpc_dev_die "sshd did not register in time"
     fi
     if hpc_dev_service_requested "jupyter"
     then
+        hpc_dev_note "Waiting for jupyter ..."
         hpc_dev_wait_for_service "jupyter" 120 || hpc_dev_die "jupyter did not register in time"
     fi
     if hpc_dev_service_requested "rstudio"
     then
+        hpc_dev_note "Waiting for rstudio ..."
         hpc_dev_wait_for_service "rstudio" 120 || hpc_dev_die "rstudio did not register in time"
     fi
     if hpc_dev_service_requested "codeserver"
     then
+        hpc_dev_note "Waiting for codeserver ..."
         hpc_dev_wait_for_service "codeserver" 120 || hpc_dev_die "codeserver did not register in time"
     fi
 

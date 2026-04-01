@@ -16,6 +16,7 @@ bash container/smoke-test-image.sh --image /path/to/hpc-dev.sif
 
 - helper help checks pass
 - `sshd`, `jupyter`, `python3`, and `code-server` exist
+- `sshd` helper accepts a remote `ssh -T` command
 - Jupyter metadata is created
 - code-server metadata and password are created
 
@@ -38,7 +39,7 @@ bash bin/hpc-dev start \
 
 ```bash
 bash bin/hpc-dev start \
-  --mode slurm \
+  --mode local \
   --image /path/to/hpc-dev.sif \
   --workspace /path/to/project \
   --access browser \
@@ -46,3 +47,9 @@ bash bin/hpc-dev start \
   --helper-mode explicit \
   --group kalebic
 ```
+
+7. On SLURM, treat `--access both` as the supported HPC mode and verify:
+
+- `bash bin/hpc-dev ssh-config --last` prints ready-to-paste SSH config blocks
+- local VS Code Remote-SSH can connect with that config
+- the project is opened at `/workspace`

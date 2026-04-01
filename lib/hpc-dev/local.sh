@@ -158,46 +158,55 @@ hpc_dev_start_local() {
     fi
 
     hpc_dev_export_engine_env
+    hpc_dev_note "Warming image ..."
     "${ENGINE_CMD}" run "${IMAGE}" true >"${SESSION_DIR}/logs/image-warmup.log" 2>&1 || true
 
     if hpc_dev_service_requested "sshd"
     then
+        hpc_dev_note "Starting sshd ..."
         if [[ "${HELPER_MODE}" == "explicit" ]]
         then
             hpc_dev_run_explicit_service_local "sshd"
         else
             hpc_dev_run_legacy_service_local "sshd" "run_sshd.sh"
         fi
+        hpc_dev_note "Waiting for sshd ..."
         hpc_dev_wait_for_service "sshd" 30 || hpc_dev_die "sshd did not register in time"
     fi
     if hpc_dev_service_requested "jupyter"
     then
+        hpc_dev_note "Starting jupyter ..."
         if [[ "${HELPER_MODE}" == "explicit" ]]
         then
             hpc_dev_run_explicit_service_local "jupyter"
         else
             hpc_dev_run_legacy_service_local "jupyter" "run_jupyterlab.sh"
         fi
+        hpc_dev_note "Waiting for jupyter ..."
         hpc_dev_wait_for_service "jupyter" 30 || hpc_dev_die "jupyter did not register in time"
     fi
     if hpc_dev_service_requested "rstudio"
     then
+        hpc_dev_note "Starting rstudio ..."
         if [[ "${HELPER_MODE}" == "explicit" ]]
         then
             hpc_dev_run_explicit_service_local "rstudio"
         else
             hpc_dev_run_legacy_service_local "rstudio" "run_rstudioserver.sh"
         fi
+        hpc_dev_note "Waiting for rstudio ..."
         hpc_dev_wait_for_service "rstudio" 30 || hpc_dev_die "rstudio did not register in time"
     fi
     if hpc_dev_service_requested "codeserver"
     then
+        hpc_dev_note "Starting codeserver ..."
         if [[ "${HELPER_MODE}" == "explicit" ]]
         then
             hpc_dev_run_explicit_service_local "codeserver"
         else
             hpc_dev_die "codeserver is supported only with --helper-mode explicit"
         fi
+        hpc_dev_note "Waiting for codeserver ..."
         hpc_dev_wait_for_service "codeserver" 30 || hpc_dev_die "codeserver did not register in time"
     fi
 

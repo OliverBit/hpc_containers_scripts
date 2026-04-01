@@ -23,6 +23,28 @@ Services: $(hpc_dev_join_by , "${SERVICES[@]-}")
 Groups: $(hpc_dev_join_by , "${GROUP_NAMES[@]-}")
 Custom binds: $(hpc_dev_join_by , "${BINDS[@]-}")
 EOF
+    if [[ "${MODE}" == "slurm" ]] && ! hpc_dev_is_image_uri "${IMAGE}"
+    then
+        echo "Image note: for SLURM, prefer a shared SIF location such as /group/kalebic/Oliviero/envs/hpc-dev.sif."
+    fi
+}
+
+hpc_dev_jump_host_spec() {
+    if [[ "${LOGIN_HOST}" == *@* ]]
+    then
+        printf '%s\n' "${LOGIN_HOST}"
+    else
+        printf '%s@%s\n' "${USER}" "${LOGIN_HOST}"
+    fi
+}
+
+hpc_dev_ssh_target_host() {
+    if [[ "${MODE}" == "local" ]]
+    then
+        printf '%s\n' "127.0.0.1"
+    else
+        printf '%s\n' "${RAW_HOST:-${HOST}}"
+    fi
 }
 
 hpc_dev_browser_service_forward() {
@@ -116,7 +138,7 @@ hpc_dev_print_ssh_command() {
     then
         echo "ssh -p ${PORT} ${USER}@127.0.0.1"
     else
-        echo "ssh -J ${USER}@${LOGIN_HOST} ${USER}@${RAW_HOST:-${HOST}} -p ${PORT}"
+        echo "ssh -J $(hpc_dev_jump_host_spec) ${USER}@$(hpc_dev_ssh_target_host) -p ${PORT}"
     fi
 }
 
@@ -146,7 +168,7 @@ hpc_dev_print_ssh_based_tunnel_command() {
         return 0
     fi
 
-    echo "ssh -NT -L ${ssh_port}:127.0.0.1:${ssh_port} $(hpc_dev_join_by ' ' "${forwards[@]}") -J ${USER}@${LOGIN_HOST} ${USER}@${ssh_host} -p ${ssh_port}"
+    echo "ssh -NT $(hpc_dev_join_by ' ' "${forwards[@]}") -J $(hpc_dev_jump_host_spec) ${USER}@${ssh_host} -p ${ssh_port}"
     if [[ "${print_hints}" == "true" ]]
     then
         hpc_dev_print_browser_service_hints
@@ -171,7 +193,7 @@ hpc_dev_print_browser_tunnel_command() {
         return 0
     fi
 
-    echo "ssh -NT $(hpc_dev_join_by ' ' "${forwards[@]}") ${USER}@${LOGIN_HOST}"
+    echo "ssh -NT $(hpc_dev_join_by ' ' "${forwards[@]}") $(hpc_dev_jump_host_spec)"
     if [[ "${print_hints}" == "true" ]]
     then
         hpc_dev_print_browser_service_hints
@@ -198,15 +220,47 @@ hpc_dev_print_tunnel_command() {
             hpc_dev_print_browser_tunnel_command
             ;;
         both)
-            echo "Via container sshd:"
+            echo "Tunnel via container sshd:"
             hpc_dev_print_ssh_based_tunnel_command false
-            echo
-            echo "Via login host directly:"
-            hpc_dev_print_browser_tunnel_command false
             echo
             hpc_dev_print_browser_service_hints
             ;;
     esac
+}
+
+hpc_dev_print_ssh_config_block() {
+    local alias_name="$1"
+    local host_name="$2"
+    local port_value="$3"
+
+    echo "Host ${alias_name}"
+    echo "  HostName ${host_name}"
+    echo "  User ${USER}"
+    echo "  Port ${port_value}"
+    if [[ "${MODE}" == "slurm" ]]
+    then
+        echo "  ProxyJump $(hpc_dev_jump_host_spec)"
+    fi
+    echo "  ServerAliveInterval 30"
+    echo "  ServerAliveCountMax 6"
+    echo "  StrictHostKeyChecking no"
+    echo "  UserKnownHostsFile /dev/null"
+}
+
+hpc_dev_print_ssh_config() {
+    if [[ "${ACCESS_MODE}" == "browser" ]]
+    then
+        hpc_dev_die "session ${SESSION_ID} is browser-only; no SSH service is available"
+    fi
+
+    hpc_dev_source_env_file "$(hpc_dev_service_file sshd)" || hpc_dev_die "ssh service metadata not available"
+
+    local host_name
+    host_name="$(hpc_dev_ssh_target_host)"
+
+    hpc_dev_print_ssh_config_block "hpc-dev-current" "${host_name}" "${PORT}"
+    echo
+    hpc_dev_print_ssh_config_block "hpc-dev-${SESSION_ID}" "${host_name}" "${PORT}"
 }
 
 hpc_dev_stop_session() {
