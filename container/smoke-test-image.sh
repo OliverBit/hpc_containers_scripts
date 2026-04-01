@@ -93,7 +93,7 @@ echo "== Helper help checks =="
 echo "ok"
 
 echo "== Binary checks =="
-"${ENGINE_CMD}" exec "${IMAGE}" bash -lc 'command -v sshd && command -v jupyter && command -v python3 && command -v code-server && command -v rserver'
+"${ENGINE_CMD}" exec "${IMAGE}" bash -lc 'command -v sshd && command -v jupyter && command -v python3 && command -v code-server && test -x /usr/lib/rstudio-server/bin/rserver && printf "%s\n" /usr/lib/rstudio-server/bin/rserver'
 
 echo "== sshd helper smoke test =="
 SSH_TEST_PORT=38887
