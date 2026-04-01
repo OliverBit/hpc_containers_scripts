@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     bash \
     ca-certificates \
     curl \
+    dropbear-bin \
     gdebi-core \
     git \
     iproute2 \

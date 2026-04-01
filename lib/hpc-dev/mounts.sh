@@ -12,18 +12,6 @@ hpc_dev_build_bind_args() {
     BIND_ARGS+=("-B" "${SESSION_DIR}:${SESSION_MOUNT}")
     BIND_ARGS+=("-B" "${CONTAINER_TMP_DIR}:/tmp")
 
-    if hpc_dev_service_requested "sshd"
-    then
-        if [[ -e "/dev/pts" ]]
-        then
-            BIND_ARGS+=("-B" "/dev/pts:/dev/pts")
-        fi
-        if [[ -e "/dev/ptmx" ]]
-        then
-            BIND_ARGS+=("-B" "/dev/ptmx:/dev/ptmx")
-        fi
-    fi
-
     if (( ${#GROUP_NAMES[@]} > 0 ))
     then
         for group_name in "${GROUP_NAMES[@]}"

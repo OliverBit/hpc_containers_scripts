@@ -14,7 +14,7 @@ What is implemented in the repo now:
 - readiness checks
 - per-service metadata files
 - explicit ssh authorized-keys path
-- ssh/editor smoke coverage through `hpc-service-sshd.sh`, including PTY checks
+- rootless-friendly SSH service through `hpc-service-sshd.sh` using Dropbear, including PTY checks
 - pinned R + RStudio Server install on Ubuntu 24.04
 - Jupyter workspace-root support
 - loopback binding for Jupyter, RStudio, and code-server

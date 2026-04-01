@@ -15,7 +15,7 @@ bash container/smoke-test-image.sh --image /path/to/hpc-dev.sif
 3. Confirm the smoke test reports:
 
 - helper help checks pass
-- `sshd`, `jupyter`, `python3`, `code-server`, and `rserver` exist
+- `dropbear`, `sshd`, `jupyter`, `python3`, `code-server`, and `rserver` exist
 - `sshd` helper accepts a remote `ssh -T` command
 - `sshd` helper accepts a PTY-backed `ssh -tt` command
 - RStudio metadata is created and reports auth-none mode

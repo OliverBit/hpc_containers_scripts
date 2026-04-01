@@ -7,7 +7,7 @@ From: ubuntu:24.04
     export CODE_SERVER_VERSION=4.112.0
     export RSTUDIO_SERVER_VERSION=2026.01.1-403
     apt-get update
-    apt-get install -y bash ca-certificates curl gdebi-core git iproute2 less netcat-openbsd openssl openssh-server procps python3 python3-venv r-base
+    apt-get install -y bash ca-certificates curl dropbear-bin gdebi-core git iproute2 less netcat-openbsd openssl openssh-server procps python3 python3-venv r-base
     curl -fsSLo /tmp/rstudio-server.deb "https://download2.rstudio.org/server/jammy/amd64/rstudio-server-${RSTUDIO_SERVER_VERSION}-amd64.deb"
     gdebi -n /tmp/rstudio-server.deb
     rm -f /tmp/rstudio-server.deb
