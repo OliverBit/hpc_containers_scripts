@@ -3,12 +3,14 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HPC_DEV_VENV=/opt/hpc-dev/venv
 ENV CODE_SERVER_VERSION=4.112.0
+ENV RSTUDIO_SERVER_VERSION=2026.01.1-403
 ENV PATH="${HPC_DEV_VENV}/bin:${PATH}"
 
 RUN apt-get update && apt-get install -y \
     bash \
     ca-certificates \
     curl \
+    gdebi-core \
     git \
     iproute2 \
     less \
@@ -17,7 +19,11 @@ RUN apt-get update && apt-get install -y \
     openssh-server \
     procps \
     python3 \
+    r-base \
     python3-venv \
+    && curl -fsSLo "/tmp/rstudio-server.deb" "https://download2.rstudio.org/server/jammy/amd64/rstudio-server-${RSTUDIO_SERVER_VERSION}-amd64.deb" \
+    && gdebi -n "/tmp/rstudio-server.deb" \
+    && rm -f "/tmp/rstudio-server.deb" \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv "${HPC_DEV_VENV}" \
@@ -30,8 +36,8 @@ RUN curl -fsSL "https://github.com/coder/code-server/releases/download/v${CODE_S
 
 RUN mkdir -p /var/run/sshd
 
-# This is a starter scaffold for the owned-image path.
-# Extend it with your site-specific R and RStudio Server installation steps.
+# This is the owned-image baseline for the hpc-dev workflow.
+# Extend it further with any site-specific certificates, mirrors, or extra tools.
 
 COPY container/helpers/hpc-service-lib.sh /usr/local/bin/hpc-service-lib.sh
 COPY container/helpers/hpc-service-sshd.sh /usr/local/bin/hpc-service-sshd.sh

@@ -121,7 +121,7 @@ EOF
         fi
         if [[ "${HELPER_MODE}" == "explicit" ]]
         then
-            echo "\"${ENGINE_CMD}\" exec ${rstudio_bind_string}-H \"${CONTAINER_HOME_SOURCE}\" \"${IMAGE}\" hpc-service-rstudio.sh --port \"\${RSTUDIO_PORT}\" --state-dir \"${SESSION_MOUNT}/services/rstudio.state\" --metadata-file \"${SESSION_MOUNT}/services/rstudio.env\" --cookie-file \"${SESSION_MOUNT}/services/rstudio.state/secure-cookie-key\" --bind-address 127.0.0.1 >\"${SESSION_DIR}/logs/rstudio.log\" 2>&1 &" >> "${job_script}"
+            echo "\"${ENGINE_CMD}\" exec ${rstudio_bind_string}-H \"${CONTAINER_HOME_SOURCE}\" \"${IMAGE}\" hpc-service-rstudio.sh --port \"\${RSTUDIO_PORT}\" --workspace \"${WORKSPACE_MOUNT}\" --state-dir \"${SESSION_MOUNT}/services/rstudio.state\" --metadata-file \"${SESSION_MOUNT}/services/rstudio.env\" --cookie-file \"${SESSION_MOUNT}/services/rstudio.state/secure-cookie-key\" --bind-address 127.0.0.1 >\"${SESSION_DIR}/logs/rstudio.log\" 2>&1 &" >> "${job_script}"
         else
             echo "\"${ENGINE_CMD}\" run ${rstudio_bind_string} -H \"${CONTAINER_HOME_SOURCE}\" \"${IMAGE}\" run_rstudioserver.sh >\"${SESSION_DIR}/logs/rstudio.log\" 2>&1 &" >> "${job_script}"
         fi
@@ -191,8 +191,21 @@ hpc_dev_start_slurm() {
 }
 
 hpc_dev_stop_slurm_session() {
+    hpc_dev_refresh_session_state
+    if [[ "${SESSION_RUNTIME_STATE}" != "running" && "${SESSION_RUNTIME_STATE}" != "pending" ]]
+    then
+        hpc_dev_note "Session already stopped: ${SESSION_ID} (${SESSION_RUNTIME_STATE}: ${SESSION_RUNTIME_DETAIL})"
+        return 0
+    fi
+
     local job_env="${SESSION_DIR}/slurm/job.env"
-    hpc_dev_source_env_file "${job_env}" || hpc_dev_die "missing SLURM job metadata for ${SESSION_ID}"
+    if ! hpc_dev_source_env_file "${job_env}"
+    then
+        hpc_dev_note "Session ${SESSION_ID} has no SLURM job metadata; nothing to cancel."
+        return 0
+    fi
+
     scancel "${JOB_ID}" || hpc_dev_die "failed to cancel job ${JOB_ID}"
+    hpc_dev_write_lifecycle_status "stopped" "slurm job cancelled"
     hpc_dev_note "Stopped SLURM session: ${SESSION_ID}"
 }

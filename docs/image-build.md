@@ -14,18 +14,19 @@ What is implemented in the repo now:
 - readiness checks
 - per-service metadata files
 - explicit ssh authorized-keys path
-- ssh/editor smoke coverage through `hpc-service-sshd.sh`
+- ssh/editor smoke coverage through `hpc-service-sshd.sh`, including PTY checks
+- pinned R + RStudio Server install on Ubuntu 24.04
 - Jupyter workspace-root support
 - loopback binding for Jupyter, RStudio, and code-server
 - access-mode aware wrapper integration for `ssh`, `browser`, and `both`
 - isolated code-server config/data/cache paths under the dedicated dev-home namespace
+- RStudio helper config that keeps runtime and project-user data under session state
 
 What still needs site-specific work before production use:
 
-- R and RStudio Server installation
 - any institute-specific certificates, modules, or package mirrors
 - Codex installation in the image
-- final production validation of code-server in the owned image
+- final production validation of code-server and RStudio on the cluster
 
 The intended Phase 2 direction is:
 
@@ -54,7 +55,7 @@ bash bin/hpc-dev start \
   --image /path/to/hpc-dev.sif \
   --workspace /path/to/project \
   --access both \
-  --service jupyter \
+  --service rstudio \
   --helper-mode explicit \
   --group kalebic
 ```
@@ -72,6 +73,14 @@ bash bin/hpc-dev start \
   --group kalebic
 ```
 
+Recommended acceptance sequence on the cluster:
+
+1. `both + jupyter`
+2. `both + code-server`
+3. `both + rstudio`
+4. plain terminal SSH with `ssh hpc-dev-current`
+5. VS Code Remote-SSH plus `/workspace`
+
 Current support guidance:
 
 - local/VM: browser-only mode remains useful
@@ -84,6 +93,7 @@ Filesystem layout for the remote-editor workflow:
 - open your project at `/workspace`
 - real home remains available at `/host-home`
 - group paths remain available at their real mount points, for example `/group/kalebic`
+- RStudio project-user data is redirected into session state so the project tree stays clean
 
 For Docker builds from the repository root:
 

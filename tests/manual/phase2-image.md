@@ -15,14 +15,14 @@ bash container/smoke-test-image.sh --image /path/to/hpc-dev.sif
 3. Confirm the smoke test reports:
 
 - helper help checks pass
-- `sshd`, `jupyter`, `python3`, and `code-server` exist
+- `sshd`, `jupyter`, `python3`, `code-server`, and `rserver` exist
 - `sshd` helper accepts a remote `ssh -T` command
+- `sshd` helper accepts a PTY-backed `ssh -tt` command
+- RStudio metadata is created and reports auth-none mode
 - Jupyter metadata is created
 - code-server metadata and password are created
 
-4. If `rserver` is not present yet, treat that as expected until the site-specific RStudio install is added.
-
-5. After the image smoke test passes, validate wrapper integration:
+4. After the image smoke test passes, validate wrapper integration:
 
 ```bash
 bash bin/hpc-dev start \
@@ -35,7 +35,7 @@ bash bin/hpc-dev start \
   --group kalebic
 ```
 
-6. Validate browser-only access:
+5. Validate browser-only access:
 
 ```bash
 bash bin/hpc-dev start \
@@ -48,8 +48,10 @@ bash bin/hpc-dev start \
   --group kalebic
 ```
 
-7. On SLURM, treat `--access both` as the supported HPC mode and verify:
+6. On SLURM, treat `--access both` as the supported HPC mode and verify:
 
 - `bash bin/hpc-dev ssh-config --last` prints ready-to-paste SSH config blocks
+- plain `ssh hpc-dev-current` opens a shell
 - local VS Code Remote-SSH can connect with that config
 - the project is opened at `/workspace`
+- `bash bin/hpc-dev cleanup --dry-run` reports only stale sessions by default

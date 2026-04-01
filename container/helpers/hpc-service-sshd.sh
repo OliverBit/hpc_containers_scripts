@@ -88,7 +88,7 @@ PrintLastLog no
 ClientAliveInterval 30
 ClientAliveCountMax 6
 LogLevel VERBOSE
-AcceptEnv LANG LC_*
+AcceptEnv LANG LC_* TERM
 Subsystem sftp internal-sftp
 EOF
 

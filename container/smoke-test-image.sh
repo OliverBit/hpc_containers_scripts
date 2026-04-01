@@ -18,9 +18,10 @@ Usage:
 What it checks:
   1. helper binaries answer to --help
   2. core binaries exist in the image
-  3. sshd helper can write metadata and accept an SSH command
-  4. Jupyter helper can write metadata and token files
-  5. code-server helper can write metadata and password files
+  3. sshd helper can write metadata and accept SSH command + PTY sessions
+  4. RStudio helper can write metadata and reach ready state
+  5. Jupyter helper can write metadata and token files
+  6. code-server helper can write metadata and password files
 EOF
 }
 
@@ -87,18 +88,12 @@ touch "${SESSION_DIR}/state/authorized_keys"
 echo "== Helper help checks =="
 "${ENGINE_CMD}" exec "${IMAGE}" hpc-service-sshd.sh --help >/dev/null
 "${ENGINE_CMD}" exec "${IMAGE}" hpc-service-jupyter.sh --help >/dev/null
-"${ENGINE_CMD}" exec "${IMAGE}" hpc-service-rstudio.sh --help >/dev/null || true
+"${ENGINE_CMD}" exec "${IMAGE}" hpc-service-rstudio.sh --help >/dev/null
 "${ENGINE_CMD}" exec "${IMAGE}" hpc-service-codeserver.sh --help >/dev/null
 echo "ok"
 
 echo "== Binary checks =="
-"${ENGINE_CMD}" exec "${IMAGE}" bash -lc 'command -v sshd && command -v jupyter && command -v python3 && command -v code-server'
-if "${ENGINE_CMD}" exec "${IMAGE}" bash -lc 'command -v rserver' >/dev/null 2>&1
-then
-    echo "rserver: present"
-else
-    echo "rserver: not present yet (expected until site-specific install is added)"
-fi
+"${ENGINE_CMD}" exec "${IMAGE}" bash -lc 'command -v sshd && command -v jupyter && command -v python3 && command -v code-server && command -v rserver'
 
 echo "== sshd helper smoke test =="
 SSH_TEST_PORT=38887
@@ -181,6 +176,83 @@ SSH_SMOKE_OUTPUT="$(ssh \
 grep -q 'ssh-ok' <<< "${SSH_SMOKE_OUTPUT}" || {
     echo "Error: ssh smoke test did not return expected output" >&2
     printf '%s\n' "${SSH_SMOKE_OUTPUT}" >&2
+    exit 1
+}
+
+SSH_PTY_OUTPUT="$(ssh \
+    -tt \
+    -o BatchMode=yes \
+    -o ConnectTimeout=5 \
+    -o StrictHostKeyChecking=no \
+    -o UserKnownHostsFile=/dev/null \
+    -i "${SSH_TEST_KEY}" \
+    -p "${SSH_TEST_PORT}" \
+    "$(id -un)@127.0.0.1" \
+    'printf pty-ok' < /dev/null 2>&1)" || {
+    echo "Error: ssh PTY smoke test failed" >&2
+    printf '%s\n' "${SSH_PTY_OUTPUT}" >&2
+    cat "${SESSION_DIR}/state/sshd.log" >&2 || true
+    exit 1
+}
+
+grep -q 'pty-ok' <<< "${SSH_PTY_OUTPUT}" || {
+    echo "Error: ssh PTY smoke test did not return expected output" >&2
+    printf '%s\n' "${SSH_PTY_OUTPUT}" >&2
+    exit 1
+}
+
+echo "ok"
+
+echo "== RStudio helper smoke test =="
+"${ENGINE_CMD}" exec \
+    -B "${SESSION_DIR}/workspace:/workspace" \
+    -B "${SESSION_DIR}/state:/state" \
+    "${IMAGE}" \
+    hpc-service-rstudio.sh \
+    --port 38890 \
+    --workspace /workspace \
+    --state-dir /state/rstudio \
+    --metadata-file /state/rstudio.env \
+    --cookie-file /state/rstudio-cookie \
+    --bind-address 127.0.0.1 > "${SESSION_DIR}/state/rstudio.log" 2>&1 &
+
+HELPER_PIDS+=("$!")
+
+for _ in $(seq 1 60)
+do
+    if [[ -f "${SESSION_DIR}/state/rstudio.env" ]]
+    then
+        break
+    fi
+    sleep 1
+done
+
+[[ -f "${SESSION_DIR}/state/rstudio.env" ]] || {
+    echo "Error: rstudio metadata file was not created" >&2
+    echo "Log follows:" >&2
+    cat "${SESSION_DIR}/state/rstudio.log" >&2 || true
+    exit 1
+}
+
+grep -q '^SERVICE=rstudio$' "${SESSION_DIR}/state/rstudio.env" || {
+    echo "Error: rstudio metadata file is malformed" >&2
+    cat "${SESSION_DIR}/state/rstudio.env" >&2
+    exit 1
+}
+
+grep -q '^AUTH_MODE=none$' "${SESSION_DIR}/state/rstudio.env" || {
+    echo "Error: rstudio metadata is missing AUTH_MODE=none" >&2
+    cat "${SESSION_DIR}/state/rstudio.env" >&2
+    exit 1
+}
+
+[[ -f "${SESSION_DIR}/state/rstudio/rserver.conf" ]] || {
+    echo "Error: rserver config file was not created" >&2
+    exit 1
+}
+
+[[ -f "${SESSION_DIR}/state/rstudio/rsession.conf" ]] || {
+    echo "Error: rsession config file was not created" >&2
     exit 1
 }
 

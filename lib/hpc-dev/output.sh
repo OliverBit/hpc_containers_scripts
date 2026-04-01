@@ -107,6 +107,7 @@ hpc_dev_service_summary() {
 }
 
 hpc_dev_print_status() {
+    hpc_dev_refresh_session_state
     echo "Session: ${SESSION_ID}"
     echo "Mode: ${MODE}"
     echo "Image: ${IMAGE}"
@@ -116,6 +117,12 @@ hpc_dev_print_status() {
     then
         hpc_dev_source_env_file "${SESSION_DIR}/slurm/job.env" || true
         echo "SLURM job: ${JOB_ID:-unknown}"
+    fi
+    if [[ -n "${SESSION_RUNTIME_DETAIL:-}" && "${SESSION_RUNTIME_DETAIL}" != "${SESSION_RUNTIME_STATE}" ]]
+    then
+        echo "State: ${SESSION_RUNTIME_STATE} (${SESSION_RUNTIME_DETAIL})"
+    else
+        echo "State: ${SESSION_RUNTIME_STATE}"
     fi
     echo "Workspace: ${WORKSPACE_DIR}"
     echo "Dev home: ${DEV_HOME_DIR}"
@@ -133,6 +140,7 @@ hpc_dev_print_ssh_command() {
     then
         hpc_dev_die "session ${SESSION_ID} is browser-only; no SSH service is available"
     fi
+    hpc_dev_assert_running_session "ssh"
     hpc_dev_source_env_file "$(hpc_dev_service_file sshd)" || hpc_dev_die "ssh service metadata not available"
     if [[ "${MODE}" == "local" ]]
     then
@@ -203,6 +211,7 @@ hpc_dev_print_browser_tunnel_command() {
 hpc_dev_print_tunnel_command() {
     if [[ "${MODE}" == "local" ]]
     then
+        hpc_dev_assert_running_session "tunnel"
         echo "Local mode does not require SSH tunnels."
         if [[ "${ACCESS_MODE}" != "browser" ]] && [[ -f "$(hpc_dev_service_file sshd)" ]]
         then
@@ -211,6 +220,8 @@ hpc_dev_print_tunnel_command() {
         hpc_dev_print_browser_service_hints
         return 0
     fi
+
+    hpc_dev_assert_running_session "tunnel"
 
     case "${ACCESS_MODE}" in
         ssh)
@@ -253,6 +264,7 @@ hpc_dev_print_ssh_config() {
         hpc_dev_die "session ${SESSION_ID} is browser-only; no SSH service is available"
     fi
 
+    hpc_dev_assert_running_session "ssh-config"
     hpc_dev_source_env_file "$(hpc_dev_service_file sshd)" || hpc_dev_die "ssh service metadata not available"
 
     local host_name

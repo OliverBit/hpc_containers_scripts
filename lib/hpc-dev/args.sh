@@ -106,6 +106,7 @@ Usage:
   hpc-dev start --mode local|slurm --image IMAGE --workspace PATH [options]
   hpc-dev status [SESSION_ID|--last]
   hpc-dev stop   [SESSION_ID|--last]
+  hpc-dev cleanup [SESSION_ID|--last] [--dry-run] [--all-stopped]
   hpc-dev ssh    [SESSION_ID|--last]
   hpc-dev ssh-config [SESSION_ID|--last]
   hpc-dev tunnel [SESSION_ID|--last]
@@ -143,10 +144,13 @@ SLURM options:
 
 Session lookup:
   --last                      use the last recorded session
+  --dry-run                   show cleanup actions without removing files
+  --all-stopped              include intentionally stopped sessions in cleanup
 
 Notes:
   * `ssh` and `tunnel` print the command to run; they do not execute it.
   * `ssh-config` prints ready-to-paste SSH config blocks for VS Code Remote-SSH or terminal use.
+  * `cleanup` removes only per-session state and tmp directories; it never removes images, caches, dev homes, or project files.
   * `plan` resolves mounts, paths, cache policy, and engine without launching.
 EOF
 }
@@ -171,6 +175,8 @@ hpc_dev_reset_options() {
     SESSION_NAME=""
     SESSION_LOOKUP=""
     USE_LAST_SESSION="false"
+    CLEANUP_DRY_RUN="false"
+    CLEANUP_ALL_STOPPED="false"
     PARTITION=""
     TIME_LIMIT="08:00:00"
     CPUS="1"
@@ -236,6 +242,27 @@ hpc_dev_parse_session_args() {
         case "$1" in
             --last) USE_LAST_SESSION="true"; shift ;;
             --) shift; SSH_COMMAND_ARGS=("$@"); break ;;
+            -h|--help) hpc_dev_usage; exit 0 ;;
+            *)
+                if [[ -z "${SESSION_LOOKUP}" ]]
+                then
+                    SESSION_LOOKUP="$1"
+                    shift
+                else
+                    hpc_dev_die "unexpected extra argument: $1"
+                fi
+                ;;
+        esac
+    done
+}
+
+hpc_dev_parse_cleanup_args() {
+    while [[ $# -gt 0 ]]
+    do
+        case "$1" in
+            --last) USE_LAST_SESSION="true"; shift ;;
+            --dry-run) CLEANUP_DRY_RUN="true"; shift ;;
+            --all-stopped) CLEANUP_ALL_STOPPED="true"; shift ;;
             -h|--help) hpc_dev_usage; exit 0 ;;
             *)
                 if [[ -z "${SESSION_LOOKUP}" ]]
@@ -375,6 +402,21 @@ hpc_dev_main() {
                 hpc_dev_prepare_session_tree
                 hpc_dev_write_session_env
                 hpc_dev_start_slurm
+            fi
+            ;;
+        cleanup)
+            hpc_dev_parse_cleanup_args "$@"
+            hpc_dev_load_config
+            if [[ "${USE_LAST_SESSION}" == "true" ]]
+            then
+                [[ -f "${LAST_SESSION_FILE:-${STATE_ROOT}/last-session}" ]] || hpc_dev_die "no last session recorded"
+                SESSION_LOOKUP="$(< "${LAST_SESSION_FILE:-${STATE_ROOT}/last-session}")"
+            fi
+            if [[ -n "${SESSION_LOOKUP}" ]]
+            then
+                hpc_dev_cleanup_explicit_target "${SESSION_LOOKUP}"
+            else
+                hpc_dev_cleanup_all_sessions
             fi
             ;;
         status|stop|ssh|ssh-config|tunnel)
