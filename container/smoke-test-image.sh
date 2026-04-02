@@ -82,7 +82,7 @@ command -v ssh-keygen >/dev/null 2>&1 || { echo "Error: ssh-keygen not found on 
 ENGINE_CMD="$(resolve_engine)"
 TMP_ROOT="$(mktemp -d /tmp/hpc-dev-image-test.XXXXXX)"
 SESSION_DIR="${TMP_ROOT}/session"
-mkdir -p "${SESSION_DIR}/workspace" "${SESSION_DIR}/state"
+mkdir -p "${SESSION_DIR}/workspace" "${SESSION_DIR}/state" "${SESSION_DIR}/home"
 touch "${SESSION_DIR}/state/authorized_keys"
 
 echo "== Helper help checks =="
@@ -106,6 +106,7 @@ cat "${SSH_TEST_KEY}.pub" > "${SESSION_DIR}/state/authorized_keys"
 
 "${ENGINE_CMD}" exec \
     -B "${SESSION_DIR}/state:/state" \
+    -H "${SESSION_DIR}/home" \
     "${IMAGE}" \
     hpc-service-sshd.sh \
     --port "${SSH_TEST_PORT}" \
