@@ -4,13 +4,15 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV HPC_DEV_VENV=/opt/hpc-dev/venv
 ENV CODE_SERVER_VERSION=4.112.0
 ENV RSTUDIO_SERVER_VERSION=2026.01.1-403
-ENV PATH="${HPC_DEV_VENV}/bin:${PATH}"
+ENV DROPBEAR_VERSION=2025.89
+ENV PATH="${HPC_DEV_VENV}/bin:/usr/local/sbin:/usr/local/bin:${PATH}"
 
 RUN apt-get update && apt-get install -y \
     bash \
+    build-essential \
+    bzip2 \
     ca-certificates \
     curl \
-    dropbear-bin \
     gdebi-core \
     git \
     iproute2 \
@@ -22,9 +24,20 @@ RUN apt-get update && apt-get install -y \
     python3 \
     r-base \
     python3-venv \
+    zlib1g-dev \
     && curl -fsSLo "/tmp/rstudio-server.deb" "https://download2.rstudio.org/server/jammy/amd64/rstudio-server-${RSTUDIO_SERVER_VERSION}-amd64.deb" \
     && gdebi -n "/tmp/rstudio-server.deb" \
     && rm -f "/tmp/rstudio-server.deb" \
+    && curl -fsSLo "/tmp/dropbear.tar.bz2" "https://matt.ucc.asn.au/dropbear/releases/dropbear-${DROPBEAR_VERSION}.tar.bz2" \
+    && mkdir -p /tmp/dropbear-src \
+    && tar -xjf "/tmp/dropbear.tar.bz2" -C /tmp/dropbear-src --strip-components=1 \
+    && cd /tmp/dropbear-src \
+    && ./configure --prefix=/usr/local \
+    && make -j"$(nproc)" MULTI=1 \
+    && make MULTI=1 install \
+    && rm -rf /tmp/dropbear.tar.bz2 /tmp/dropbear-src \
+    && apt-get purge -y build-essential bzip2 zlib1g-dev \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv "${HPC_DEV_VENV}" \
