@@ -55,3 +55,13 @@ bash bin/hpc-dev start \
 - local VS Code Remote-SSH can connect with that config
 - the project is opened at `/workspace`
 - `bash bin/hpc-dev cleanup --dry-run` reports only stale sessions by default
+
+7. If plain `ssh` or the VS Code integrated terminal still fail, do not keep changing SSH servers blindly. Run:
+
+```bash
+bash container/compare-ssh-control.sh \
+  --current-image /path/to/hpc-dev.sif \
+  --control-image docker://nfdata/workbench:base-1.7.0
+```
+
+Then classify the result using `docs/ssh-pty-recovery.md` before deciding whether to attempt one final SSH fix or fall back to `5788d53`.

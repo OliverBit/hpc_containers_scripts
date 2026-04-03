@@ -41,6 +41,16 @@ bash container/build-apptainer.sh /path/to/hpc-dev.sif
 bash container/smoke-test-image.sh --image /path/to/hpc-dev.sif
 ```
 
+If interactive SSH/PTTY is the blocker, run the control comparison harness on a compute node before changing SSH servers again:
+
+```bash
+bash container/compare-ssh-control.sh \
+  --current-image /path/to/hpc-dev.sif \
+  --control-image docker://nfdata/workbench:base-1.7.0
+```
+
+See `docs/ssh-pty-recovery.md` for the decision tree and the sanctioned fallback target.
+
 For SLURM, prefer storing the final SIF in shared storage rather than in the repository tree. A typical path is:
 
 ```text
