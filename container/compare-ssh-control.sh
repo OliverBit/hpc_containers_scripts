@@ -6,22 +6,32 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 ENGINE="${ENGINE:-auto}"
 CURRENT_IMAGE=""
 CONTROL_IMAGE="docker://nfdata/workbench:base-1.7.0"
+CONTROL_SIF=""
 KEEP_TMP="true"
 TMP_ROOT=""
 REPORT_DIR=""
+RUN_LOG=""
 PIDS=()
 
 note() {
     printf '%s\n' "$*" >&2
+    if [[ -n "${RUN_LOG}" ]]
+    then
+        printf '%s\n' "$*" >> "${RUN_LOG}"
+    fi
 }
 
 on_error() {
     local exit_code="$?"
     note "Comparison failed with exit code ${exit_code}."
+    if [[ -n "${TMP_ROOT}" && -d "${TMP_ROOT}" ]]
+    then
+        note "Work root: ${TMP_ROOT}"
+    fi
     if [[ -n "${REPORT_DIR}" && -d "${REPORT_DIR}" ]]
     then
         note "Report root: ${REPORT_DIR}"
-        find "${REPORT_DIR%/report}" -maxdepth 3 -type f 2>/dev/null | sort >&2 || true
+        find "${TMP_ROOT}" -maxdepth 3 -type f 2>/dev/null | sort >&2 || true
     fi
     exit "${exit_code}"
 }
@@ -31,6 +41,7 @@ usage() {
     cat <<'EOF'
 Usage:
   container/compare-ssh-control.sh --current-image IMAGE [--control-image IMAGE_OR_URI]
+                                  [--control-sif PATH] [--report-root PATH]
                                   [--engine apptainer|singularity] [--keep-tmp]
 
 Run this on a compute node or inside an interactive SLURM allocation. It compares:
@@ -38,8 +49,12 @@ Run this on a compute node or inside an interactive SLURM allocation. It compare
   2. the legacy control image/runtime based on run_sshd.sh
 
 Outputs:
-  - a report directory under a temporary root
+  - a persistent work/report directory (defaults under the repository root)
   - per-runtime diagnostics for SSH command mode, PTY mode, mountinfo, uid/gid maps, and NSS
+
+Control image options:
+  - --control-image docker://...   Compare directly against an OCI image or a local SIF
+  - --control-sif /shared/path.sif Reuse or build a shared SIF cache for the control image
 EOF
 }
 
@@ -64,6 +79,37 @@ resolve_engine() {
         echo "Error: neither apptainer nor singularity is available" >&2
         exit 1
     fi
+}
+
+default_work_root() {
+    local ts
+    ts="$(date +%Y%m%dT%H%M%S)"
+    printf '%s/.hpc-dev-ssh-control/%s-%s\n' "${ROOT_DIR}" "${ts}" "$$"
+}
+
+resolve_control_image() {
+    local image_ref="$1"
+    local sif_path="$2"
+
+    if [[ -z "${sif_path}" ]]
+    then
+        printf '%s\n' "${image_ref}"
+        return 0
+    fi
+
+    mkdir -p "$(dirname "${sif_path}")"
+
+    if [[ -f "${sif_path}" ]]
+    then
+        note "Using cached control SIF: ${sif_path}"
+        printf '%s\n' "${sif_path}"
+        return 0
+    fi
+
+    note "Building control SIF cache at ${sif_path} from ${image_ref} ..."
+    "${ENGINE_CMD}" build "${sif_path}" "${image_ref}"
+    note "Built control SIF cache: ${sif_path}"
+    printf '%s\n' "${sif_path}"
 }
 
 pick_port() {
@@ -103,6 +149,8 @@ do
     case "$1" in
         --current-image) CURRENT_IMAGE="${2:-}"; shift 2 ;;
         --control-image) CONTROL_IMAGE="${2:-}"; shift 2 ;;
+        --control-sif) CONTROL_SIF="${2:-}"; shift 2 ;;
+        --report-root) TMP_ROOT="${2:-}"; shift 2 ;;
         --engine) ENGINE="${2:-}"; shift 2 ;;
         --keep-tmp) KEEP_TMP="true"; shift ;;
         -h|--help) usage; exit 0 ;;
@@ -116,10 +164,16 @@ command -v ssh >/dev/null 2>&1 || { echo "Error: ssh client not found on host" >
 command -v ssh-keygen >/dev/null 2>&1 || { echo "Error: ssh-keygen not found on host" >&2; exit 1; }
 
 ENGINE_CMD="$(resolve_engine)"
-TMP_ROOT="$(mktemp -d /tmp/hpc-dev-ssh-control.XXXXXX)"
+TMP_ROOT="${TMP_ROOT:-$(default_work_root)}"
 REPORT_DIR="${TMP_ROOT}/report"
 mkdir -p "${REPORT_DIR}"
+RUN_LOG="${REPORT_DIR}/run.log"
+: > "${RUN_LOG}"
+CONTROL_IMAGE="$(resolve_control_image "${CONTROL_IMAGE}" "${CONTROL_SIF}")"
+note "Control comparison work root: ${TMP_ROOT}"
 note "Control comparison report root: ${REPORT_DIR}"
+note "Control comparison run log: ${RUN_LOG}"
+note "Control image source: ${CONTROL_IMAGE}"
 
 SSH_KEY="${TMP_ROOT}/ssh-test-key"
 ssh-keygen -q -t ed25519 -N '' -f "${SSH_KEY}" >/dev/null
@@ -371,5 +425,7 @@ prepare_control_runtime
 write_summary
 
 echo "Control comparison complete."
+echo "Work root: ${TMP_ROOT}"
 echo "Report root: ${REPORT_DIR}"
+echo "Run log: ${RUN_LOG}"
 echo "Summary: ${REPORT_DIR}/summary.txt"

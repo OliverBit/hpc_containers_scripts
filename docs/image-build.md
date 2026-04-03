@@ -44,9 +44,13 @@ bash container/smoke-test-image.sh --image /path/to/hpc-dev.sif
 If interactive SSH/PTTY is the blocker, run the control comparison harness on a compute node before changing SSH servers again:
 
 ```bash
+apptainer build /group/kalebic/Oliviero/envs/control-workbench-base-1.7.0.sif \
+  docker://nfdata/workbench:base-1.7.0
+
 bash container/compare-ssh-control.sh \
   --current-image /path/to/hpc-dev.sif \
-  --control-image docker://nfdata/workbench:base-1.7.0
+  --control-sif /group/kalebic/Oliviero/envs/control-workbench-base-1.7.0.sif \
+  --report-root /group/kalebic/Oliviero/hpc-dev-ssh-control/latest
 ```
 
 See `docs/ssh-pty-recovery.md` for the decision tree and the sanctioned fallback target.

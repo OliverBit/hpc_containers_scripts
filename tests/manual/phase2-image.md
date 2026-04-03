@@ -59,9 +59,13 @@ bash bin/hpc-dev start \
 7. If plain `ssh` or the VS Code integrated terminal still fail, do not keep changing SSH servers blindly. Run:
 
 ```bash
+apptainer build /group/kalebic/Oliviero/envs/control-workbench-base-1.7.0.sif \
+  docker://nfdata/workbench:base-1.7.0
+
 bash container/compare-ssh-control.sh \
   --current-image /path/to/hpc-dev.sif \
-  --control-image docker://nfdata/workbench:base-1.7.0
+  --control-sif /group/kalebic/Oliviero/envs/control-workbench-base-1.7.0.sif \
+  --report-root /group/kalebic/Oliviero/hpc-dev-ssh-control/latest
 ```
 
 Then classify the result using `docs/ssh-pty-recovery.md` before deciding whether to attempt one final SSH fix or fall back to `5788d53`.
