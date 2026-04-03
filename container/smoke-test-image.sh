@@ -99,14 +99,32 @@ echo "== sshd helper smoke test =="
 SSH_TEST_PORT=38887
 SSH_TEST_KEY="${SESSION_DIR}/state/ssh-smoke-key"
 SSH_STATE_DIR="${SESSION_DIR}/state/sshd"
+SSH_PASSWD_FILE="${SESSION_DIR}/state/ssh-passwd"
+SSH_GROUP_FILE="${SESSION_DIR}/state/ssh-group"
 
 mkdir -p "${SSH_STATE_DIR}" "${SESSION_DIR}/state/hostkeys"
 ssh-keygen -q -t ed25519 -N '' -f "${SSH_TEST_KEY}" >/dev/null
 cat "${SSH_TEST_KEY}.pub" > "${SESSION_DIR}/state/authorized_keys"
 
+cat > "${SSH_PASSWD_FILE}" <<EOF
+root:x:0:0:root:/root:/bin/bash
+nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
+$(id -un):x:$(id -u):$(id -g):$(id -un):${SESSION_DIR}/home:/bin/bash
+EOF
+
+cat > "${SSH_GROUP_FILE}" <<EOF
+root:x:0:
+$(id -gn 2>/dev/null || printf '%s' "$(id -un)"):x:$(id -g):$(id -un)
+tty:x:$(id -g):$(id -un)
+nogroup:x:65534:
+EOF
+
 "${ENGINE_CMD}" exec \
+    --contain \
     -B "${SESSION_DIR}/state:/state" \
     -H "${SESSION_DIR}/home" \
+    -B "${SSH_PASSWD_FILE}:/etc/passwd" \
+    -B "${SSH_GROUP_FILE}:/etc/group" \
     "${IMAGE}" \
     hpc-service-sshd.sh \
     --port "${SSH_TEST_PORT}" \

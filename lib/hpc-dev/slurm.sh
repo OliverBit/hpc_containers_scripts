@@ -76,6 +76,8 @@ EOF
 
     if hpc_dev_service_requested "sshd"
     then
+        local ssh_bind_string
+        ssh_bind_string="${quoted_binds}$(hpc_dev_quote_args "-B" "${SESSION_DIR}/ssh/passwd:/etc/passwd" "-B" "${SESSION_DIR}/ssh/group:/etc/group")"
         if [[ "${SSH_PORT_REQUEST}" == "auto" ]]
         then
             echo 'export SSH_PORT="$(pick_port)"' >> "${job_script}"
@@ -84,7 +86,7 @@ EOF
         fi
         if [[ "${HELPER_MODE}" == "explicit" ]]
         then
-            echo "\"${ENGINE_CMD}\" exec ${quoted_binds}-H \"${CONTAINER_HOME_SOURCE}\" \"${IMAGE}\" hpc-service-sshd.sh --port \"\${SSH_PORT}\" --state-dir \"${SESSION_MOUNT}/services/sshd.state\" --metadata-file \"${SESSION_MOUNT}/services/sshd.env\" --authorized-keys-file \"${DEV_HOME_MOUNT}/.ssh/authorized_keys\" --host-keys-dir \"${SESSION_MOUNT}/ssh/hostkeys\" --bind-address 0.0.0.0 >\"${SESSION_DIR}/logs/sshd.log\" 2>&1 &" >> "${job_script}"
+            echo "\"${ENGINE_CMD}\" exec --contain ${ssh_bind_string}-H \"${CONTAINER_HOME_SOURCE}\" \"${IMAGE}\" hpc-service-sshd.sh --port \"\${SSH_PORT}\" --state-dir \"${SESSION_MOUNT}/services/sshd.state\" --metadata-file \"${SESSION_MOUNT}/services/sshd.env\" --authorized-keys-file \"${DEV_HOME_MOUNT}/.ssh/authorized_keys\" --host-keys-dir \"${SESSION_MOUNT}/ssh/hostkeys\" --bind-address 0.0.0.0 >\"${SESSION_DIR}/logs/sshd.log\" 2>&1 &" >> "${job_script}"
         else
             echo "\"${ENGINE_CMD}\" run ${quoted_binds}-H \"${CONTAINER_HOME_SOURCE}\" \"${IMAGE}\" run_sshd.sh >\"${SESSION_DIR}/logs/sshd.log\" 2>&1 &" >> "${job_script}"
         fi

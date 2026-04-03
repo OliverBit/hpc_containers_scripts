@@ -127,8 +127,17 @@ hpc_dev_run_explicit_service_local() {
     esac
 
     hpc_dev_export_engine_env
-    "${ENGINE_CMD}" exec "${BIND_ARGS[@]}" -H "${CONTAINER_HOME_SOURCE}" \
-        "${IMAGE}" "${helper_name}" "${helper_args[@]}" >"${logfile}" 2>&1 &
+    if [[ "${service_name}" == "sshd" ]]
+    then
+        "${ENGINE_CMD}" exec --contain "${BIND_ARGS[@]}" \
+            -B "${SESSION_DIR}/ssh/passwd:/etc/passwd" \
+            -B "${SESSION_DIR}/ssh/group:/etc/group" \
+            -H "${CONTAINER_HOME_SOURCE}" \
+            "${IMAGE}" "${helper_name}" "${helper_args[@]}" >"${logfile}" 2>&1 &
+    else
+        "${ENGINE_CMD}" exec "${BIND_ARGS[@]}" -H "${CONTAINER_HOME_SOURCE}" \
+            "${IMAGE}" "${helper_name}" "${helper_args[@]}" >"${logfile}" 2>&1 &
+    fi
 
     local pid=$!
     printf '%s\n' "${pid}" > "${SESSION_DIR}/pids/${service_name}.pid"

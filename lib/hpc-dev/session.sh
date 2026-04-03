@@ -49,6 +49,10 @@ hpc_dev_prepare_session_tree() {
     fi
 
     hpc_dev_sync_authorized_keys
+    if hpc_dev_service_requested "sshd"
+    then
+        hpc_dev_prepare_ssh_nss_files
+    fi
     printf '%s\n' "${SESSION_ID}" > "${LAST_SESSION_FILE}"
     hpc_dev_write_lifecycle_status "created" "session prepared"
 }
@@ -74,6 +78,34 @@ hpc_dev_sync_authorized_keys() {
         : > "${target_auth}"
         chmod 600 "${target_auth}" || true
     fi
+}
+
+hpc_dev_prepare_ssh_nss_files() {
+    local ssh_dir="${SESSION_DIR}/ssh"
+    local passwd_file="${ssh_dir}/passwd"
+    local group_file="${ssh_dir}/group"
+    local user_uid
+    local user_gid
+    local user_group
+    local login_home
+
+    user_uid="$(id -u)"
+    user_gid="$(id -g)"
+    user_group="$(id -gn 2>/dev/null || printf '%s' "${USER}")"
+    login_home="${CONTAINER_HOME_SOURCE:-${DEV_HOME_DIR}}"
+
+    cat > "${passwd_file}" <<EOF
+root:x:0:0:root:/root:/bin/bash
+nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
+${USER}:x:${user_uid}:${user_gid}:${USER}:${login_home}:/bin/bash
+EOF
+
+    cat > "${group_file}" <<EOF
+root:x:0:
+${user_group}:x:${user_gid}:${USER}
+tty:x:${user_gid}:${USER}
+nogroup:x:65534:
+EOF
 }
 
 hpc_dev_write_lifecycle_status() {

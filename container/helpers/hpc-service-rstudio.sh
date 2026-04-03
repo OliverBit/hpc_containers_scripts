@@ -81,7 +81,6 @@ secure-cookie-key-file=${COOKIE_FILE}
 www-address=${BIND_ADDRESS}
 www-port=${PORT}
 auth-none=1
-auth-pam-sessions-enabled=0
 server-project-sharing=0
 rsession-config-file=${RSESSION_CONFIG}
 EOF
