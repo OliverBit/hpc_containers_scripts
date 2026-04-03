@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 ENGINE="${ENGINE:-auto}"
@@ -10,6 +10,22 @@ KEEP_TMP="true"
 TMP_ROOT=""
 REPORT_DIR=""
 PIDS=()
+
+note() {
+    printf '%s\n' "$*" >&2
+}
+
+on_error() {
+    local exit_code="$?"
+    note "Comparison failed with exit code ${exit_code}."
+    if [[ -n "${REPORT_DIR}" && -d "${REPORT_DIR}" ]]
+    then
+        note "Report root: ${REPORT_DIR}"
+        find "${REPORT_DIR%/report}" -maxdepth 3 -type f 2>/dev/null | sort >&2 || true
+    fi
+    exit "${exit_code}"
+}
+trap on_error ERR
 
 usage() {
     cat <<'EOF'
@@ -103,6 +119,7 @@ ENGINE_CMD="$(resolve_engine)"
 TMP_ROOT="$(mktemp -d /tmp/hpc-dev-ssh-control.XXXXXX)"
 REPORT_DIR="${TMP_ROOT}/report"
 mkdir -p "${REPORT_DIR}"
+note "Control comparison report root: ${REPORT_DIR}"
 
 SSH_KEY="${TMP_ROOT}/ssh-test-key"
 ssh-keygen -q -t ed25519 -N '' -f "${SSH_KEY}" >/dev/null
@@ -155,6 +172,7 @@ write_runtime_diag() {
             getent group tty 2>/dev/null || true
             echo
             echo "-- python pty check --"
+            if command -v python3 >/dev/null 2>&1; then
             python3 - <<'"'"'PY'"'"'
 import os, pty
 m, s = pty.openpty()
@@ -177,6 +195,9 @@ for label, uid, gid in tests:
 os.close(m)
 os.close(s)
 PY
+            else
+                echo "python3 not available"
+            fi
         '
     } > "${out_file}" 2>&1
 }
@@ -211,6 +232,7 @@ run_ssh_checks() {
 }
 
 prepare_current_runtime() {
+    note "Preparing current-image runtime ..."
     CURRENT_ROOT="${TMP_ROOT}/current"
     mkdir -p "${CURRENT_ROOT}/state" "${CURRENT_ROOT}/home" "${CURRENT_ROOT}/workspace" "${CURRENT_ROOT}/report"
 
@@ -258,7 +280,12 @@ EOF
         [[ -f "${CURRENT_ROOT}/state/sshd.env" ]] && break
         sleep 1
     done
+    if [[ ! -f "${CURRENT_ROOT}/state/sshd.env" ]]
+    then
+        note "Current runtime did not write ssh metadata in time; continuing with logs."
+    fi
 
+    note "Capturing current-image diagnostics ..."
     write_runtime_diag \
         "current" \
         "${CURRENT_ROOT}/report/runtime.txt" \
@@ -270,10 +297,12 @@ EOF
         -H "${CURRENT_ROOT}/home" \
         "${CURRENT_IMAGE}"
 
+    note "Running current-image SSH checks ..."
     run_ssh_checks "${CURRENT_PORT}" "${CURRENT_ROOT}/report/current"
 }
 
 prepare_control_runtime() {
+    note "Preparing control runtime (${CONTROL_IMAGE}) ..."
     CONTROL_ROOT="${TMP_ROOT}/control"
     mkdir -p "${CONTROL_ROOT}/home/.ssh" "${CONTROL_ROOT}/tmp" "${CONTROL_ROOT}/report"
     cat "${SSH_KEY}.pub" > "${CONTROL_ROOT}/home/.ssh/authorized_keys"
@@ -296,7 +325,12 @@ prepare_control_runtime() {
         grep -q "sshd $(id -un)" "${CONTROL_DAT}" 2>/dev/null && break
         sleep 1
     done
+    if ! grep -q "sshd $(id -un)" "${CONTROL_DAT}" 2>/dev/null
+    then
+        note "Control runtime did not register ssh metadata in time; continuing with logs."
+    fi
 
+    note "Capturing control diagnostics ..."
     write_runtime_diag \
         "control" \
         "${CONTROL_ROOT}/report/runtime.txt" \
@@ -305,6 +339,7 @@ prepare_control_runtime() {
         -H "${CONTROL_ROOT}/home" \
         "${CONTROL_IMAGE}"
 
+    note "Running control SSH checks ..."
     run_ssh_checks "${CONTROL_PORT}" "${CONTROL_ROOT}/report/control"
 }
 
@@ -330,6 +365,7 @@ write_summary() {
 }
 
 write_host_diag "${REPORT_DIR}/host.txt"
+note "Captured host-side diagnostics."
 prepare_current_runtime
 prepare_control_runtime
 write_summary
