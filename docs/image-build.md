@@ -16,13 +16,13 @@ What is implemented in the repo now:
 - explicit ssh authorized-keys path
 - ssh/editor smoke coverage through `hpc-service-sshd.sh`
 - Jupyter workspace-root support
-- loopback binding for Jupyter, RStudio, and code-server
+- loopback binding for Jupyter and code-server
 - access-mode aware wrapper integration for `ssh`, `browser`, and `both`
 - isolated code-server config/data/cache paths under the dedicated dev-home namespace
 
 What still needs site-specific work before production use:
 
-- R and RStudio Server installation
+- R and any future RStudio Server reintroduction
 - any institute-specific certificates, modules, or package mirrors
 - Codex installation in the image
 - final production validation of code-server in the owned image
@@ -30,7 +30,7 @@ What still needs site-specific work before production use:
 The intended Phase 2 direction is:
 
 1. build an owned image from the scaffold
-2. verify `hpc-service-sshd.sh --help`, `hpc-service-jupyter.sh --help`, `hpc-service-rstudio.sh --help`, and `hpc-service-codeserver.sh --help` inside the image
+2. verify `hpc-service-sshd.sh --help`, `hpc-service-jupyter.sh --help`, and `hpc-service-codeserver.sh --help` inside the image
 3. verify SSH/editor and combined access modes with the owned image
 
 Suggested commands:
@@ -77,6 +77,8 @@ Current support guidance:
 - local/VM: browser-only mode remains useful
 - SLURM: prefer `--access both`
 - SLURM browser-only mode is intentionally disabled for now until a safe forwarding design replaces the old direct-login-host assumption
+- `RStudio` is currently disabled in the wrapper
+- browser-facing workflows (`both + jupyter`, `both + code-server`) are the supported HPC path while interactive in-container SSH/PTTY remains unresolved
 
 Filesystem layout for the remote-editor workflow:
 

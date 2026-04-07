@@ -215,6 +215,13 @@ hpc_dev_start_local() {
 }
 
 hpc_dev_stop_local_session() {
+    hpc_dev_refresh_session_state
+    if [[ "${SESSION_RUNTIME_STATE}" != "running" ]]
+    then
+        hpc_dev_note "Session already stopped: ${SESSION_ID} (${SESSION_RUNTIME_STATE}: ${SESSION_RUNTIME_DETAIL})"
+        return 0
+    fi
+
     local pid_file
     for pid_file in "${SESSION_DIR}"/pids/*.pid
     do
@@ -222,6 +229,8 @@ hpc_dev_stop_local_session() {
         local pid
         pid="$(< "${pid_file}")"
         kill "${pid}" >/dev/null 2>&1 || true
+        rm -f "${pid_file}"
     done
+    hpc_dev_write_lifecycle_status "stopped" "local services stopped"
     hpc_dev_note "Stopped local session: ${SESSION_ID}"
 }

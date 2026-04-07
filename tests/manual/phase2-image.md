@@ -20,7 +20,7 @@ bash container/smoke-test-image.sh --image /path/to/hpc-dev.sif
 - Jupyter metadata is created
 - code-server metadata and password are created
 
-4. If `rserver` is not present yet, treat that as expected until the site-specific RStudio install is added.
+4. `RStudio` is currently disabled in the wrapper, so no `rserver` validation is required for the supported path.
 
 5. After the image smoke test passes, validate wrapper integration:
 
@@ -53,3 +53,5 @@ bash bin/hpc-dev start \
 - `bash bin/hpc-dev ssh-config --last` prints ready-to-paste SSH config blocks
 - local VS Code Remote-SSH can connect with that config
 - the project is opened at `/workspace`
+- `bash bin/hpc-dev cleanup --dry-run` reports only stale sessions by default
+- `bash bin/hpc-dev status --last` reports `running`, `pending`, `stopped`, or `gone` for the selected session

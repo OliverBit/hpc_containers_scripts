@@ -191,8 +191,30 @@ hpc_dev_start_slurm() {
 }
 
 hpc_dev_stop_slurm_session() {
+    hpc_dev_refresh_session_state
+    if [[ "${SESSION_RUNTIME_STATE}" != "running" && "${SESSION_RUNTIME_STATE}" != "pending" ]]
+    then
+        hpc_dev_note "Session already stopped: ${SESSION_ID} (${SESSION_RUNTIME_STATE}: ${SESSION_RUNTIME_DETAIL})"
+        return 0
+    fi
+
     local job_env="${SESSION_DIR}/slurm/job.env"
-    hpc_dev_source_env_file "${job_env}" || hpc_dev_die "missing SLURM job metadata for ${SESSION_ID}"
-    scancel "${JOB_ID}" || hpc_dev_die "failed to cancel job ${JOB_ID}"
+    if ! hpc_dev_source_env_file "${job_env}"
+    then
+        hpc_dev_note "Session ${SESSION_ID} has no SLURM job metadata; nothing to cancel."
+        return 0
+    fi
+
+    if ! scancel "${JOB_ID}"
+    then
+        hpc_dev_refresh_session_state
+        if [[ "${SESSION_RUNTIME_STATE}" != "running" && "${SESSION_RUNTIME_STATE}" != "pending" ]]
+        then
+            hpc_dev_note "Session already stopped: ${SESSION_ID} (${SESSION_RUNTIME_STATE}: ${SESSION_RUNTIME_DETAIL})"
+            return 0
+        fi
+        hpc_dev_die "failed to cancel job ${JOB_ID}"
+    fi
+    hpc_dev_write_lifecycle_status "stopped" "slurm job cancelled"
     hpc_dev_note "Stopped SLURM session: ${SESSION_ID}"
 }
