@@ -1,5 +1,7 @@
 # hpc-dev CLI
 
+This document describes the supported behavior on `codex/pre-rstudio-recovery`.
+
 Primary entrypoint:
 
 ```bash
@@ -101,7 +103,7 @@ bash bin/hpc-dev start \
   --helper-mode explicit \
   --group kalebic
 
-# SSH plus code-server together
+# code-server through the same tunneled session
 bash bin/hpc-dev start \
   --mode slurm \
   --image /path/to/hpc-dev.sif \
@@ -131,6 +133,7 @@ Recommended rollout:
 - use `--helper-mode explicit` only with the owned image path
 - use `--access browser` and `--service codeserver` only on the explicit helper path
 - prefer `--access both` on SLURM so browser services tunnel through container `sshd`
+- use Jupyter and code-server as the supported browser-facing services on this branch
 
 Session lifecycle behavior:
 
@@ -169,6 +172,7 @@ bash bin/hpc-dev ssh-config --last
 3. Paste the printed block into `~/.ssh/config` on your Mac.
 4. Connect from local VS Code using Remote-SSH.
 5. Once connected, open `/workspace` explicitly. The remote window lands in the persistent dev home first by design.
+6. Treat this as a browsing/open-folder workflow. Do not rely on in-container PTY-backed terminals on this branch.
 
 SSH note:
 

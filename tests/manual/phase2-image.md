@@ -21,6 +21,7 @@ bash container/smoke-test-image.sh --image /path/to/hpc-dev.sif
 - code-server metadata and password are created
 
 4. `RStudio` is currently disabled in the wrapper, so no `rserver` validation is required for the supported path.
+   If the smoke script still contains optional RStudio references, treat them as scaffolding leftovers rather than acceptance criteria.
 
 5. After the image smoke test passes, validate wrapper integration:
 
@@ -51,7 +52,8 @@ bash bin/hpc-dev start \
 7. On SLURM, treat `--access both` as the supported HPC mode and verify:
 
 - `bash bin/hpc-dev ssh-config --last` prints ready-to-paste SSH config blocks
-- local VS Code Remote-SSH can connect with that config
+- local VS Code Remote-SSH can connect with that config and open `/workspace`
 - the project is opened at `/workspace`
 - `bash bin/hpc-dev cleanup --dry-run` reports only stale sessions by default
 - `bash bin/hpc-dev status --last` reports `running`, `pending`, `stopped`, or `gone` for the selected session
+- plain interactive SSH or PTY-backed terminal success is not required for this branch

@@ -1,5 +1,9 @@
 # Phase 1 Architecture
 
+Historical reference only.
+This document describes the legacy path and migration context. It may mention RStudio and older runtime assumptions that are not part of the current supported workflow.
+For the supported fallback workflow on `codex/pre-rstudio-recovery`, see `README.md`, `docs/cli.md`, and `docs/image-build.md`.
+
 Phase 1 keeps the current container-side helper contract but moves host-side runtime state out of the project directory.
 
 Key paths:

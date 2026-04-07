@@ -1,5 +1,7 @@
 # Owned Image Path
 
+This document describes the supported image story for `codex/pre-rstudio-recovery`.
+
 The repository now contains starter scaffolds for the owned-image path:
 
 - `container/Dockerfile`
@@ -32,6 +34,15 @@ The intended Phase 2 direction is:
 1. build an owned image from the scaffold
 2. verify `hpc-service-sshd.sh --help`, `hpc-service-jupyter.sh --help`, and `hpc-service-codeserver.sh --help` inside the image
 3. verify SSH/editor and combined access modes with the owned image
+
+Current supported smoke expectations for this branch:
+
+- `sshd`, `jupyter`, `python3`, and `code-server` exist
+- the SSH helper accepts a non-interactive `ssh -T` command
+- Jupyter metadata is created
+- code-server metadata and password files are created
+
+If the smoke script still mentions dormant RStudio helper checks, treat those as scaffolding leftovers rather than active support on this branch.
 
 Suggested commands:
 
@@ -79,6 +90,7 @@ Current support guidance:
 - SLURM browser-only mode is intentionally disabled for now until a safe forwarding design replaces the old direct-login-host assumption
 - `RStudio` is currently disabled in the wrapper
 - browser-facing workflows (`both + jupyter`, `both + code-server`) are the supported HPC path while interactive in-container SSH/PTTY remains unresolved
+- PTY-backed SSH is not a release criterion for this branch
 
 Filesystem layout for the remote-editor workflow:
 

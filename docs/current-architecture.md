@@ -1,5 +1,9 @@
 # Current Legacy Architecture Snapshot
 
+Historical reference only.
+This document describes the legacy path and migration context. It may mention RStudio and older runtime assumptions that are not part of the current supported workflow.
+For the supported fallback workflow on `codex/pre-rstudio-recovery`, see `README.md`, `docs/cli.md`, and `docs/image-build.md`.
+
 Legacy root scripts:
 
 - `slurm_docker_run.txt`

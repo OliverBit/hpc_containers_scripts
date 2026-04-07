@@ -8,6 +8,7 @@
 6. On the explicit helper path, validate `--access both --service jupyter` on SLURM.
 7. Confirm the SLURM `both` tunnel path works from the login host through container `sshd`.
 8. If testing locally or on a VM, validate `--access browser --service jupyter`.
-9. Confirm Remote-SSH lands in the persistent dev home and that `/workspace` and `/host-home` are both available.
-10. Kill a SLURM session outside the wrapper with `scancel`, then confirm `status --last` shows it as stopped/gone and `stop --last` is idempotent.
-11. Run `bash bin/hpc-dev cleanup --dry-run` and confirm only stale session state would be removed by default.
+9. Confirm Remote-SSH can still land in the persistent dev home and that `/workspace` and `/host-home` are both available.
+10. Treat Remote-SSH here as an open-folder/browsing path only; do not require plain interactive SSH or PTY-backed terminal success.
+11. Kill a SLURM session outside the wrapper with `scancel`, then confirm `status --last` shows it as stopped/gone and `stop --last` is idempotent.
+12. Run `bash bin/hpc-dev cleanup --dry-run` and confirm only stale session state would be removed by default.
