@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y \
     openssl \
     openssh-server \
     procps \
+    r-base \
     python3 \
     python3-venv \
     && rm -rf /var/lib/apt/lists/*
@@ -30,8 +31,12 @@ RUN curl -fsSL "https://github.com/coder/code-server/releases/download/v${CODE_S
 
 RUN mkdir -p /var/run/sshd
 
+# Keep user-installed R packages under the mounted home/dev-home instead of the project tree.
+RUN printf '%s\n' 'R_LIBS_USER=~/.local/share/hpc-dev/R/%p-library/%v' > /etc/R/Renviron.site
+
 # This is a starter scaffold for the owned-image path.
-# Extend it with your site-specific R and RStudio Server installation steps.
+# It includes Python, Jupyter, code-server, and a minimal R runtime for VS Code work.
+# RStudio Server is intentionally not included on this branch.
 
 COPY container/helpers/hpc-service-lib.sh /usr/local/bin/hpc-service-lib.sh
 COPY container/helpers/hpc-service-sshd.sh /usr/local/bin/hpc-service-sshd.sh

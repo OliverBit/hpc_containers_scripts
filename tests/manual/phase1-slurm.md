@@ -7,3 +7,4 @@
 5. Confirm that `bash bin/hpc-dev status --last` reports the runtime state cleanly.
 6. Confirm that `bash bin/hpc-dev stop --last` cancels the SLURM job and is idempotent after a manual `scancel`.
 7. Confirm that `bash bin/hpc-dev cleanup --dry-run` only targets stale session state by default.
+8. Use `tests/manual/phase3-codex-vscode.md` for the separate local-VS-Code and Codex extension validation on top of this SLURM baseline.

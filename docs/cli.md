@@ -1,6 +1,6 @@
 # hpc-dev CLI
 
-This document describes the supported behavior on `codex/pre-rstudio-recovery`.
+This document describes the current behavior on `codex/codex-vscode-remote`, which builds on the supported fallback baseline from `codex/pre-rstudio-recovery`.
 
 Primary entrypoint:
 
@@ -79,6 +79,7 @@ Current recommendation:
 - SLURM/HPC: prefer `--access both`
 - SLURM `--access browser` is temporarily disabled because browser services bind to loopback inside the compute node and direct login-host forwarding is not reliable yet
 - `RStudio` is currently disabled in the wrapper; use Jupyter or code-server for now
+- Python and minimal R-in-VSCode work are the intended editor targets on this branch
 
 Examples:
 
@@ -184,4 +185,6 @@ Editor note:
 
 - `code-server` works and is isolated from Posit Workbench state.
 - GitHub/Copilot chat-style extensions inside `code-server` should be treated as best-effort, not the primary supported editor workflow.
-- local VS Code Remote-SSH can still be useful for browsing and opening `/workspace`, but Codex and other terminal-heavy workflows should not rely on in-container PTY support yet.
+- local VS Code Remote-SSH can still be useful for browsing and opening `/workspace`, and the Codex IDE extension is the intended validation target on this branch.
+- treat Codex here as an open-folder/editing workflow and do not rely on in-container PTY-backed terminals.
+- use [tests/manual/phase3-codex-vscode.md](/Users/oliviero.leonardi/Documents/GitHub/hpc_containers_scripts/tests/manual/phase3-codex-vscode.md) for the end-to-end checklist.

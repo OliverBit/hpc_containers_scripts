@@ -7,3 +7,4 @@
 5. Confirm the printed URL or tunnel hints match the selected service.
 6. Confirm cache growth lands in the configured cache directory rather than home defaults.
 7. Run `bash bin/hpc-dev cleanup --dry-run` and confirm only stale local session state would be removed.
+8. Treat `jupyter` and `codeserver` as the supported local services on this branch. `RStudio` remains disabled.

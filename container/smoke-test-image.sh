@@ -19,8 +19,9 @@ What it checks:
   1. helper binaries answer to --help
   2. core binaries exist in the image
   3. sshd helper can write metadata and accept an SSH command
-  4. Jupyter helper can write metadata and token files
-  5. code-server helper can write metadata and password files
+  4. minimal R runtime is present and starts non-interactively
+  5. Jupyter helper can write metadata and token files
+  6. code-server helper can write metadata and password files
 EOF
 }
 
@@ -87,18 +88,11 @@ touch "${SESSION_DIR}/state/authorized_keys"
 echo "== Helper help checks =="
 "${ENGINE_CMD}" exec "${IMAGE}" hpc-service-sshd.sh --help >/dev/null
 "${ENGINE_CMD}" exec "${IMAGE}" hpc-service-jupyter.sh --help >/dev/null
-"${ENGINE_CMD}" exec "${IMAGE}" hpc-service-rstudio.sh --help >/dev/null || true
 "${ENGINE_CMD}" exec "${IMAGE}" hpc-service-codeserver.sh --help >/dev/null
 echo "ok"
 
 echo "== Binary checks =="
-"${ENGINE_CMD}" exec "${IMAGE}" bash -lc 'command -v sshd && command -v jupyter && command -v python3 && command -v code-server'
-if "${ENGINE_CMD}" exec "${IMAGE}" bash -lc 'command -v rserver' >/dev/null 2>&1
-then
-    echo "rserver: present"
-else
-    echo "rserver: not present yet (expected until site-specific install is added)"
-fi
+"${ENGINE_CMD}" exec "${IMAGE}" bash -lc 'command -v sshd && command -v jupyter && command -v python3 && command -v code-server && command -v R && command -v Rscript'
 
 echo "== sshd helper smoke test =="
 SSH_TEST_PORT=38887
@@ -181,6 +175,27 @@ SSH_SMOKE_OUTPUT="$(ssh \
 grep -q 'ssh-ok' <<< "${SSH_SMOKE_OUTPUT}" || {
     echo "Error: ssh smoke test did not return expected output" >&2
     printf '%s\n' "${SSH_SMOKE_OUTPUT}" >&2
+    exit 1
+}
+
+echo "ok"
+
+echo "== R runtime smoke test =="
+R_SMOKE_OUTPUT="$("${ENGINE_CMD}" exec "${IMAGE}" bash -lc "Rscript -e \"cat('r-ok\\n'); cat(Sys.getenv('R_LIBS_USER'), '\\n')\" " 2>&1)" || {
+    echo "Error: R runtime smoke test failed" >&2
+    printf '%s\n' "${R_SMOKE_OUTPUT}" >&2
+    exit 1
+}
+
+grep -q '^r-ok$' <<< "${R_SMOKE_OUTPUT}" || {
+    echo "Error: R smoke test did not return expected output" >&2
+    printf '%s\n' "${R_SMOKE_OUTPUT}" >&2
+    exit 1
+}
+
+grep -q '\.local/share/hpc-dev/R' <<< "${R_SMOKE_OUTPUT}" || {
+    echo "Error: R_LIBS_USER is not configured under the user-owned hpc-dev path" >&2
+    printf '%s\n' "${R_SMOKE_OUTPUT}" >&2
     exit 1
 }
 

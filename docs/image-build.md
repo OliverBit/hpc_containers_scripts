@@ -1,6 +1,6 @@
 # Owned Image Path
 
-This document describes the supported image story for `codex/pre-rstudio-recovery`.
+This document describes the current image story on `codex/codex-vscode-remote`, which builds on the supported fallback baseline from `codex/pre-rstudio-recovery`.
 
 The repository now contains starter scaffolds for the owned-image path:
 
@@ -18,16 +18,17 @@ What is implemented in the repo now:
 - explicit ssh authorized-keys path
 - ssh/editor smoke coverage through `hpc-service-sshd.sh`
 - Jupyter workspace-root support
+- minimal R runtime for VS Code work
 - loopback binding for Jupyter and code-server
 - access-mode aware wrapper integration for `ssh`, `browser`, and `both`
 - isolated code-server config/data/cache paths under the dedicated dev-home namespace
 
 What still needs site-specific work before production use:
 
-- R and any future RStudio Server reintroduction
+- any future RStudio Server reintroduction
 - any institute-specific certificates, modules, or package mirrors
 - Codex installation in the image
-- final production validation of code-server in the owned image
+- final production validation of local VS Code + Codex extension against the remote container
 
 The intended Phase 2 direction is:
 
@@ -37,8 +38,9 @@ The intended Phase 2 direction is:
 
 Current supported smoke expectations for this branch:
 
-- `sshd`, `jupyter`, `python3`, and `code-server` exist
+- `sshd`, `jupyter`, `python3`, `code-server`, `R`, and `Rscript` exist
 - the SSH helper accepts a non-interactive `ssh -T` command
+- the R runtime starts non-interactively
 - Jupyter metadata is created
 - code-server metadata and password files are created
 
@@ -82,6 +84,9 @@ bash bin/hpc-dev start \
   --helper-mode explicit \
   --group kalebic
 ```
+
+Codex-on-VSCode validation is a separate manual step after the image and wrapper smoke checks.
+Use [tests/manual/phase3-codex-vscode.md](/Users/oliviero.leonardi/Documents/GitHub/hpc_containers_scripts/tests/manual/phase3-codex-vscode.md).
 
 Current support guidance:
 

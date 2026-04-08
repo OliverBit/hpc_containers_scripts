@@ -15,8 +15,9 @@ bash container/smoke-test-image.sh --image /path/to/hpc-dev.sif
 3. Confirm the smoke test reports:
 
 - helper help checks pass
-- `sshd`, `jupyter`, `python3`, and `code-server` exist
+- `sshd`, `jupyter`, `python3`, `code-server`, `R`, and `Rscript` exist
 - `sshd` helper accepts a remote `ssh -T` command
+- the minimal R runtime starts non-interactively
 - Jupyter metadata is created
 - code-server metadata and password are created
 
@@ -57,3 +58,5 @@ bash bin/hpc-dev start \
 - `bash bin/hpc-dev cleanup --dry-run` reports only stale sessions by default
 - `bash bin/hpc-dev status --last` reports `running`, `pending`, `stopped`, or `gone` for the selected session
 - plain interactive SSH or PTY-backed terminal success is not required for this branch
+
+8. After the image and wrapper checks pass, use [phase3-codex-vscode.md](/Users/oliviero.leonardi/Documents/GitHub/hpc_containers_scripts/tests/manual/phase3-codex-vscode.md) for the local VS Code + Codex extension validation path.

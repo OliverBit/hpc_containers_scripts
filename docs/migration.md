@@ -2,7 +2,7 @@
 
 Historical reference only.
 This document describes the legacy path and migration context. It may mention RStudio and older runtime assumptions that are not part of the current supported workflow.
-For the supported fallback workflow on `codex/pre-rstudio-recovery`, see `README.md`, `docs/cli.md`, and `docs/image-build.md`.
+For the current workflow on `codex/codex-vscode-remote`, which builds on the `codex/pre-rstudio-recovery` baseline, see `README.md`, `docs/cli.md`, and `docs/image-build.md`.
 
 Current legacy scripts remain in the repository root as frozen references.
 
