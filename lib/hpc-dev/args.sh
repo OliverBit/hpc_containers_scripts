@@ -321,14 +321,14 @@ hpc_dev_validate_launch_args() {
     done
     SERVICES=("${validated_services[@]-}")
 
-    if [[ "${HELPER_MODE}" != "explicit" && "${ACCESS_MODE}" != "ssh" ]]
-    then
-        hpc_dev_die "--access ${ACCESS_MODE} requires --helper-mode explicit"
-    fi
-
     if [[ "${MODE}" == "slurm" && "${ACCESS_MODE}" == "browser" ]]
     then
         hpc_dev_die "--mode slurm --access browser is temporarily disabled: browser services bind to loopback on the compute node, so direct login-host forwarding is not reliable. Use --access both instead."
+    fi
+
+    if [[ "${HELPER_MODE}" != "explicit" && "${ACCESS_MODE}" == "browser" ]]
+    then
+        hpc_dev_die "--access browser requires --helper-mode explicit"
     fi
 
     if hpc_dev_service_requested "codeserver" && [[ "${HELPER_MODE}" != "explicit" ]]
@@ -390,6 +390,7 @@ hpc_dev_main() {
             hpc_dev_validate_launch_args
             hpc_dev_prepare_engine
             hpc_dev_resolve_paths
+            hpc_dev_validate_explicit_helper_contract
             hpc_dev_build_bind_args
             if [[ "${COMMAND}" == "plan" ]]
             then

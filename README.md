@@ -1,9 +1,14 @@
 # hpc-dev
 
-This branch, `codex/codex-vscode-remote`, builds on the recovery baseline from `codex/pre-rstudio-recovery` and is the current extension-first validation line for Codex in local VS Code against the remote HPC container.
+This branch, `codex/codex-vscode-remote`, builds on the recovery baseline from `codex/pre-rstudio-recovery` and currently supports two tracks:
+
+- a VS Code Remote compatibility track for local VS Code on the Mac against a remote HPC container
+- a cleaner browser/editor track for owned-image work with explicit helpers
 
 What is supported here:
 
+- VS Code Remote compatibility through `--helper-mode legacy --access both --service jupyter`
+- `--home-mode real` as the recommended VS Code compatibility mode
 - SLURM `--access both` sessions
 - Jupyter through the tunneled session
 - code-server through the tunneled session
@@ -18,6 +23,20 @@ Current limitations:
 - SLURM `--access browser` is disabled
 
 Recommended HPC path:
+
+```bash
+bash bin/hpc-dev start \
+  --mode slurm \
+  --image /group/kalebic/Oliviero/envs/workbench-base-1.7.0.sif \
+  --workspace /path/to/project \
+  --home-mode real \
+  --access both \
+  --service jupyter \
+  --helper-mode legacy \
+  --group kalebic
+```
+
+Clean owned-image path:
 
 ```bash
 bash bin/hpc-dev start \

@@ -12,6 +12,14 @@ hpc_dev_build_bind_args() {
     BIND_ARGS+=("-B" "${SESSION_DIR}:${SESSION_MOUNT}")
     BIND_ARGS+=("-B" "${CONTAINER_TMP_DIR}:/tmp")
 
+    if [[ -n "${XDG_RUNTIME_DIR:-}" && -d "${XDG_RUNTIME_DIR}" ]]
+    then
+        BIND_ARGS+=("-B" "${XDG_RUNTIME_DIR}:${XDG_RUNTIME_DIR}")
+    elif [[ -d "/run/user" ]]
+    then
+        BIND_ARGS+=("-B" "/run/user:/run/user")
+    fi
+
     if (( ${#GROUP_NAMES[@]} > 0 ))
     then
         for group_name in "${GROUP_NAMES[@]}"

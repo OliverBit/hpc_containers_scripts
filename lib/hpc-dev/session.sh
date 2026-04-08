@@ -49,6 +49,7 @@ hpc_dev_prepare_session_tree() {
     fi
 
     hpc_dev_sync_authorized_keys
+    hpc_dev_sync_legacy_home_authorized_keys
     printf '%s\n' "${SESSION_ID}" > "${LAST_SESSION_FILE}"
     hpc_dev_write_lifecycle_status "created" "session prepared"
 }
@@ -74,6 +75,49 @@ hpc_dev_sync_authorized_keys() {
         : > "${target_auth}"
         chmod 600 "${target_auth}" || true
     fi
+}
+
+hpc_dev_sync_legacy_home_authorized_keys() {
+    [[ "${HELPER_MODE}" == "legacy" ]] || return 0
+    hpc_dev_service_requested "sshd" || return 0
+
+    local source_auth="${REAL_HOME_DIR}/.ssh/authorized_keys"
+    local target_home=""
+
+    case "${HOME_MODE}" in
+        real) target_home="${REAL_HOME_DIR}" ;;
+        project) target_home="${WORKSPACE_DIR}" ;;
+        dev) return 0 ;;
+    esac
+
+    local target_ssh_dir="${target_home}/.ssh"
+    local target_auth="${target_ssh_dir}/authorized_keys"
+
+    hpc_dev_ensure_dir "${target_ssh_dir}"
+    chmod 700 "${target_ssh_dir}" >/dev/null 2>&1 || true
+
+    if [[ ! -f "${source_auth}" ]]
+    then
+        [[ -f "${target_auth}" ]] || : > "${target_auth}"
+        chmod 600 "${target_auth}" >/dev/null 2>&1 || true
+        return 0
+    fi
+
+    if [[ "${target_auth}" == "${source_auth}" ]]
+    then
+        chmod 600 "${target_auth}" >/dev/null 2>&1 || true
+        return 0
+    fi
+
+    local tmp_auth="${target_auth}.tmp"
+    if [[ -f "${target_auth}" ]]
+    then
+        cat "${source_auth}" "${target_auth}" | awk '!seen[$0]++' > "${tmp_auth}"
+    else
+        cat "${source_auth}" | awk '!seen[$0]++' > "${tmp_auth}"
+    fi
+    mv "${tmp_auth}" "${target_auth}"
+    chmod 600 "${target_auth}" >/dev/null 2>&1 || true
 }
 
 hpc_dev_write_lifecycle_status() {

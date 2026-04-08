@@ -27,6 +27,10 @@ EOF
     then
         echo "Image note: for SLURM, prefer a shared SIF location such as /group/kalebic/Oliviero/envs/hpc-dev.sif."
     fi
+    if [[ "${HELPER_MODE}" == "legacy" && "${ACCESS_MODE}" == "both" ]]
+    then
+        echo "Compatibility note: for VS Code Remote with legacy images, prefer --home-mode real first and use --home-mode project only as a fallback."
+    fi
 }
 
 hpc_dev_jump_host_spec() {
@@ -113,6 +117,7 @@ hpc_dev_print_status() {
     echo "Image: ${IMAGE}"
     echo "Access: ${ACCESS_MODE}"
     echo "Helper mode: ${HELPER_MODE}"
+    echo "Home mode: ${HOME_MODE}"
     if [[ "${MODE}" == "slurm" && -f "${SESSION_DIR}/slurm/job.env" ]]
     then
         hpc_dev_source_env_file "${SESSION_DIR}/slurm/job.env" || true

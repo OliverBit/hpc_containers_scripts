@@ -2,6 +2,9 @@
 
 This document describes the current image story on `codex/codex-vscode-remote`, which builds on the supported fallback baseline from `codex/pre-rstudio-recovery`.
 
+This document covers the clean owned-image / explicit-helper track.
+For the first stable VS Code Remote workflow on this branch, use the legacy compatibility track with `workbench-base-1.7.0.sif`, `--helper-mode legacy`, and `--home-mode real`.
+
 The repository now contains starter scaffolds for the owned-image path:
 
 - `container/Dockerfile`
@@ -91,7 +94,8 @@ Use [tests/manual/phase3-codex-vscode.md](/Users/oliviero.leonardi/Documents/Git
 Current support guidance:
 
 - local/VM: browser-only mode remains useful
-- SLURM: prefer `--access both`
+- SLURM owned-image/browser track: prefer `--access both --helper-mode explicit`
+- SLURM VS Code Remote compatibility track: use the legacy workbench image first with `--access both --helper-mode legacy --home-mode real`
 - SLURM browser-only mode is intentionally disabled for now until a safe forwarding design replaces the old direct-login-host assumption
 - `RStudio` is currently disabled in the wrapper
 - browser-facing workflows (`both + jupyter`, `both + code-server`) are the supported HPC path while interactive in-container SSH/PTTY remains unresolved
